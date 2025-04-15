@@ -6,6 +6,11 @@
       "argsIgnorePattern": "^_",
       "varsIgnorePattern": "^_"
     }],
-    "react/no-unescaped-entities": "error"
+    "react/no-unescaped-entities": ["error", {
+      "forbid": [{
+        "char": ">",
+        "alternatives": ["&gt;"]
+      }]
+    }]
   }
 } 

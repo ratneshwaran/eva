@@ -195,7 +195,7 @@ export default function WellbeingScore() {
 
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Today's Score</h3>
+              <h3 className="text-lg font-semibold text-gray-800">Today&apos;s Score</h3>
               <div className={`text-3xl font-bold ${getScoreColor(scores[currentMetric])}`}>
                 {Math.round(scores[currentMetric] * 100)}%
               </div>
