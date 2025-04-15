@@ -38,13 +38,13 @@ const TrendIndicator: React.FC<TrendIndicatorProps> = ({ trend }) => {
 };
 
 export default function WellbeingScore() {
-  const [metrics, setMetrics] = useState<WellbeingMetrics>({
-    mood: 0,
-    journalSentiment: 0,
-    chatSentiment: 0,
-    breathingExercises: 0,
-    timestamp: new Date()
-  });
+  const [metrics] = useState<string[]>([
+    'Mood',
+    'Anxiety',
+    'Sleep',
+    'Energy',
+    'Social Connection'
+  ]);
 
   const [weeklyAnalytics, setWeeklyAnalytics] = useState<WeeklyAnalytics>({
     averageScore: 0,
@@ -56,6 +56,8 @@ export default function WellbeingScore() {
 
   const [monthlyScores, setMonthlyScores] = useState<DailyScore[]>([]);
   const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [currentMetric, setCurrentMetric] = useState<string>(metrics[0]);
+  const [scores, setScores] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadData();
@@ -169,22 +171,38 @@ export default function WellbeingScore() {
 
       {view === 'daily' && (
         <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            {metrics.map((metric) => (
+              <button
+                key={metric}
+                onClick={() => setCurrentMetric(metric)}
+                className={`p-4 rounded-lg transition-all ${
+                  currentMetric === metric
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {metric}
+              </button>
+            ))}
+          </div>
+
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Today's Score</h3>
-              <div className={`text-3xl font-bold ${getScoreColor(metrics.mood)}`}>
-                {Math.round(metrics.mood * 100)}%
+              <div className={`text-3xl font-bold ${getScoreColor(scores[currentMetric])}`}>
+                {Math.round(scores[currentMetric] * 100)}%
               </div>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div
                 className={`h-2.5 rounded-full ${
-                  metrics.mood >= 0.8 ? 'bg-green-600' :
-                  metrics.mood >= 0.6 ? 'bg-blue-600' :
-                  metrics.mood >= 0.4 ? 'bg-yellow-600' :
+                  scores[currentMetric] >= 0.8 ? 'bg-green-600' :
+                  scores[currentMetric] >= 0.6 ? 'bg-blue-600' :
+                  scores[currentMetric] >= 0.4 ? 'bg-yellow-600' :
                   'bg-red-600'
                 }`}
-                style={{ width: `${metrics.mood * 100}%` }}
+                style={{ width: `${scores[currentMetric] * 100}%` }}
               />
             </div>
           </div>
@@ -193,17 +211,17 @@ export default function WellbeingScore() {
             {[
               {
                 name: 'Mood',
-                score: metrics.mood,
+                score: scores[currentMetric],
                 description: 'Based on your mood tracking'
               },
               {
                 name: 'Journal',
-                score: metrics.journalSentiment,
+                score: scores['Anxiety'],
                 description: 'Based on your journal entries'
               },
               {
                 name: 'Chat',
-                score: metrics.chatSentiment,
+                score: scores['Sleep'],
                 description: 'Based on your conversations'
               }
             ].map((category) => (
@@ -242,8 +260,12 @@ export default function WellbeingScore() {
       </div>
 
       <div className="mt-4 text-sm text-gray-500">
-        Last updated: {metrics.timestamp.toLocaleString()}
+        Last updated: {new Date().toLocaleString()}
       </div>
+
+      <p className="text-gray-600 mt-4">
+        Let&apos;s track how you&apos;re feeling to better understand your wellbeing journey.
+      </p>
     </div>
   );
 } 

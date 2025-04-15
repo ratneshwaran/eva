@@ -67,7 +67,7 @@ export default function CrisisSupport() {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Need Immediate Help?</h2>
         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
           <p className="text-lg font-semibold text-red-700">
-            If you're having thoughts of suicide or experiencing a mental health crisis, help is available 24/7:
+            If you&apos;re experiencing thoughts of suicide or severe emotional distress, please reach out for help immediately.
           </p>
           <p className="text-red-700 mt-2 text-xl font-bold">
             Call 999 for emergencies or 116 123 for Samaritans

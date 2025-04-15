@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { MessageList, MessageInput } from '.';
-import { Message } from '../../types/chat';
+import { Message } from '@/types/chat';
 
 const WELCOME_MESSAGE: Message = {
   id: 'welcome',
@@ -70,6 +70,11 @@ export default function ChatInterface() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleError = (error: Error) => {
+    console.error('Error in chat:', error);
+    setError(error.message || 'An error occurred during the conversation.');
   };
 
   return (
