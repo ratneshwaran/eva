@@ -57,7 +57,13 @@ export default function WellbeingScore() {
   const [monthlyScores, setMonthlyScores] = useState<DailyScore[]>([]);
   const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [currentMetric, setCurrentMetric] = useState<string>(metrics[0]);
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const scores: Record<string, number> = {
+    'Mood': 0.75,
+    'Anxiety': 0.65,
+    'Sleep': 0.8,
+    'Energy': 0.7,
+    'Social Connection': 0.85
+  };
 
   useEffect(() => {
     loadData();

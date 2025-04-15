@@ -1,5 +1,4 @@
-import { OpenAIStream, StreamingTextResponse } from 'ai';
-import OpenAI from 'openai';
+import { OpenAI } from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 if (!process.env.OPENAI_API_KEY) {
@@ -31,30 +30,26 @@ export async function POST(req: Request) {
     // Add system message to the beginning of the conversation
     const conversationWithSystem = [systemMessage, ...messages];
 
-    // Ask OpenAI for a streaming chat completion
-    const response = await openai.chat.completions.create({
+    // Ask OpenAI for a chat completion
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
-      stream: true,
       messages: conversationWithSystem,
       max_tokens: 500,
       temperature: 0.7,
       frequency_penalty: 0.5,
     });
 
-    // Convert the response into a friendly text-stream
-    const stream = OpenAIStream(response);
-
-    // Respond with the stream
-    return new StreamingTextResponse(stream);
+    // Return the response
+    return Response.json({ response: completion.choices[0].message.content });
   } catch (error: unknown) {
+    console.error('Chat API error:', error);
+    
     if (error instanceof Error) {
-      return new Response(
-        JSON.stringify({ error: error.message }), 
-        { status: 500 }
-      );
+      return Response.json({ error: error.message }, { status: 500 });
     }
-    return new Response(
-      JSON.stringify({ error: 'An unknown error occurred' }), 
+    
+    return Response.json(
+      { error: 'An unknown error occurred' }, 
       { status: 500 }
     );
   }
