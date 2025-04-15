@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     // Ask OpenAI for a chat completion
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4-1106-preview',
       messages: conversationWithSystem,
       max_tokens: 500,
       temperature: 0.7,

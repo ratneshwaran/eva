@@ -54,16 +54,16 @@ export default function FeatureNavigation() {
   return (
     <div className="min-h-screen bg-gray-50 relative">
       <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 md:space-x-4">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-gray-900">Mind AI</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mind AI</h1>
               </div>
-              <div className="h-6 px-3 bg-[#1a1b2e] rounded flex items-center justify-center">
-                <span className="text-white text-sm font-medium tracking-wide">40seconds</span>
+              <div className="h-6 px-2 md:px-3 bg-[#1a1b2e] rounded flex items-center justify-center">
+                <span className="text-white text-xs md:text-sm font-medium tracking-wide">40seconds</span>
               </div>
-              <span className="text-sm text-gray-600">Your Mental Health Assistant</span>
+              <span className="text-xs md:text-sm text-gray-600">Your Mental Health Assistant</span>
             </div>
           </div>
         </div>
@@ -71,7 +71,7 @@ export default function FeatureNavigation() {
 
       {/* Mobile floating button */}
       <button
-        className="fixed z-30 bottom-6 left-6 md:hidden bg-blue-600 text-white p-3 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="fixed z-30 bottom-24 left-4 md:hidden bg-blue-600 text-white p-3 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         aria-label="Open features menu"
         onClick={() => setIsMobileOpen(true)}
         style={{ display: isMobileOpen ? 'none' : 'block' }}
@@ -136,7 +136,7 @@ export default function FeatureNavigation() {
               aria-label="Close sidebar overlay"
             />
             {/* Drawer */}
-            <div className="relative w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto h-full shadow-xl animate-slide-in-left">
+            <div className="relative w-4/5 max-w-xs bg-white border-r border-gray-200 p-4 overflow-y-auto h-full shadow-xl animate-slide-in-left">
               <button
                 aria-label="Close sidebar"
                 onClick={() => setIsMobileOpen(false)}
@@ -162,10 +162,10 @@ export default function FeatureNavigation() {
                   >
                     <div className="text-2xl flex-shrink-0">{feature.icon}</div>
                     <div className="ml-3">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-base font-semibold text-gray-900">
                         {feature.name}
                       </h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs text-gray-600">
                         {feature.description}
                       </p>
                     </div>
