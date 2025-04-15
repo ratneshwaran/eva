@@ -5,7 +5,10 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
   title: 'Mind AI by 40seconds.org - Mental Health Assistant',
-  description: 'Your personal AI-powered mental health support companion by 40seconds.org',
+  description: 'Your personal AI-powered mental health support companion by 40seconds.org.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

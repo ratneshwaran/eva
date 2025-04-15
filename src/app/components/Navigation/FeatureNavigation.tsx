@@ -17,7 +17,7 @@ interface FeatureInfo {
 const FEATURES: FeatureInfo[] = [
   {
     id: 'chat',
-    name: 'AI Chat Support',
+    name: 'Empathetic AI',
     description: 'Talk with Mind AI about your thoughts and feelings',
     icon: '💭'
   },

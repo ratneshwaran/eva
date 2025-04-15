@@ -7,7 +7,7 @@ import { Message } from '../../types/chat';
 const WELCOME_MESSAGE: Message = {
   id: 'welcome',
   role: 'assistant',
-  content: 'Hello! I\'m Mind AI, your mental health assistant. I\'m here to listen and support you. While I\'m not a replacement for professional therapy, I can help you explore your thoughts and feelings, and suggest coping strategies. How are you feeling today?',
+  content: 'Hello! I\'m Mind AI, your mental health assistant. I\'m here to listen and support you with understanding and compassion. While I\'m not a replacement for professional therapy, I can help you explore your thoughts and feelings, and suggest coping strategies. How are you feeling today?',
   timestamp: new Date(),
 };
 
