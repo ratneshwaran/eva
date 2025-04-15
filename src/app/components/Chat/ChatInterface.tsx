@@ -46,7 +46,7 @@ export default function ChatInterface() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: content, messageHistory: messages }),
+        body: JSON.stringify({ messages: messages }),
       });
 
       if (!response.ok) {
@@ -64,17 +64,16 @@ export default function ChatInterface() {
       };
 
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error: any) {
-      console.error('Error sending message:', error);
-      setError(error.message || 'Failed to send message. Please try again.');
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('Error sending message:', error);
+        setError(error.message);
+      } else {
+        setError('Failed to send message. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleError = (error: Error) => {
-    console.error('Error in chat:', error);
-    setError(error.message || 'An error occurred during the conversation.');
   };
 
   return (

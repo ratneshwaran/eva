@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { wellbeingService, WellbeingMetrics, WeeklyAnalytics, DailyScore } from '../../services/wellbeingService';
+import { wellbeingService, WeeklyAnalytics, DailyScore } from '../../../services/wellbeingService';
 
 interface TrendIndicatorProps {
   trend: 'improving' | 'declining' | 'stable';
@@ -83,7 +83,7 @@ export default function WellbeingScore() {
       <div className="mt-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">30-Day Progress</h3>
         <div className="flex items-end space-x-2 h-[150px]">
-          {monthlyScores.slice(-30).map((score, index) => {
+          {monthlyScores.slice(-30).map((score) => {
             const height = Math.max(20, score.overallScore * maxHeight);
             return (
               <div
