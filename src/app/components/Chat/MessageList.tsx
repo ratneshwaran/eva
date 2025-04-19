@@ -1,54 +1,80 @@
 'use client';
 
-import { Message } from '../../types/chat';
+import { Message } from '@/types/chat';
+import { motion } from 'framer-motion';
+import PromptCard from './PromptCard';
+import Avatar from './Avatar';
 
 interface MessageListProps {
-  messages?: Message[];
+  messages: Message[];
+  isTyping?: boolean;
+  isSidebarOpen?: boolean;
 }
 
-export default function MessageList({ messages = [] }: MessageListProps) {
-  if (!messages) return null;
-  
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning!';
+  if (hour >= 12 && hour < 17) return 'Good afternoon!';
+  if (hour >= 17 && hour < 22) return 'Good evening!';
+  return 'Hello!';
+};
+
+export default function MessageList({ messages, isTyping = false, isSidebarOpen = true }: MessageListProps) {
   return (
-    <div className="space-y-4">
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`animate-fade-in flex ${
-            message.role === 'user' ? 'justify-end' : 'justify-start'
-          }`}
-        >
-          <div
-            className={`max-w-[85%] p-5 rounded-lg ${
-              message.role === 'user' 
-                ? 'bg-blue-600 text-white shadow-md' 
-                : 'bg-white shadow-md border border-gray-200'
+    <div className="w-full flex flex-col pb-24">
+      <div className="flex-1 w-full space-y-6 px-4">
+        {messages.map((message) => (
+          <div 
+            key={message.id}
+            className={`flex items-start gap-3 ${
+              message.role === 'user' ? 'flex-row-reverse' : ''
             }`}
           >
-            <div className="font-bold text-base mb-1">
-              {message.role === 'user' ? 'You' : 'Mind AI'}
-            </div>
-            <div className={`whitespace-pre-wrap ${message.role === 'user' ? 'text-white' : 'text-gray-900'} text-lg`}>
-              {message.content}
-              {message.role === 'assistant' && message.id === 'welcome' && (
-                <div className="mt-3 flex items-center space-x-2 text-xs text-gray-500">
-                  <span>Powered by</span>
-                  <a 
-                    href="https://40seconds.org" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="inline-flex items-center hover:opacity-80 transition-opacity"
-                  >
-                    <div className="h-6 px-3 bg-[#1a1b2e] rounded flex items-center justify-center">
-                      <span className="text-white text-sm font-medium tracking-wide">40seconds</span>
-                    </div>
-                  </a>
-                </div>
-              )}
+            {message.role === 'assistant' && (
+              <div className="flex-shrink-0">
+                <Avatar state="default" />
+              </div>
+            )}
+            
+            <div
+              className={`px-4 py-3 rounded-2xl ${
+                message.role === 'user'
+                  ? 'bg-blue-600 text-white ml-auto max-w-[80%]'
+                  : 'bg-white text-gray-900 shadow-sm mr-auto max-w-[80%]'
+              }`}
+            >
+              <div className="whitespace-pre-wrap text-[16px] leading-relaxed">{message.content}</div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+        
+        {isTyping && (
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <Avatar state="thinking" />
+            </div>
+            <div className="bg-white shadow-sm px-4 py-3 rounded-2xl mr-auto max-w-[80%]">
+              <div className="flex gap-2">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="text-sm text-gray-500 px-4 mt-auto py-2">
+        Powered by{' '}
+        <a
+          href="https://40seconds.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 transition-colors font-medium"
+        >
+          40seconds.org
+        </a>
+      </div>
     </div>
   );
 }

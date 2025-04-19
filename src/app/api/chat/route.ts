@@ -27,6 +27,24 @@ export async function POST(req: Request) {
   try {
     const { messages }: { messages: ChatCompletionMessageParam[] } = await req.json();
 
+    // Validate messages
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return Response.json(
+        { error: 'Invalid messages format. Expected non-empty array of messages.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate each message has required properties
+    for (const msg of messages) {
+      if (!msg.role || !msg.content || typeof msg.content !== 'string') {
+        return Response.json(
+          { error: 'Invalid message format. Each message must have role and content.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Add system message to the beginning of the conversation
     const conversationWithSystem = [systemMessage, ...messages];
 
@@ -39,12 +57,23 @@ export async function POST(req: Request) {
       frequency_penalty: 0.5,
     });
 
-    // Return the response
-    return Response.json({ response: completion.choices[0].message.content });
+    const responseMessage = completion.choices[0].message;
+
+    // Return the response with the expected message field
+    return Response.json({
+      message: responseMessage.content
+    });
   } catch (error: unknown) {
     console.error('Chat API error:', error);
     
     if (error instanceof Error) {
+      // Check for specific OpenAI API errors
+      if (error.message.includes('API key')) {
+        return Response.json(
+          { error: 'Configuration error. Please check API settings.' },
+          { status: 500 }
+        );
+      }
       return Response.json({ error: error.message }, { status: 500 });
     }
     

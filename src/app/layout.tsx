@@ -4,8 +4,8 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Mind AI by 40seconds.org - Mental Health Assistant',
-  description: 'Your personal AI-powered mental health support companion by 40seconds.org.',
+  title: 'Eva by 40seconds.org - Mental Health Assistant',
+  description: 'Your personal AI-powered mental health support companion by 40seconds.org',
   icons: {
     icon: '/favicon.ico',
   },
