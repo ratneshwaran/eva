@@ -61,3 +61,5 @@ export function MessageInput({ onSendMessage, isLoading = false, value, onChange
     </div>
   );
 }
+
+export default MessageInput;
