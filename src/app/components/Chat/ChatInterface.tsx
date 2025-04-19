@@ -557,22 +557,26 @@ export default function ChatInterface() {
         return (
           <div className="flex-1 flex flex-col h-full">
             <div className="flex-1 overflow-y-auto p-6 pb-10">
-              <MessageList 
-                messages={messages} 
-                isTyping={isLoading}
-                isSidebarOpen={isSidebarOpen}
-              />
+              <div className="mx-auto w-full max-w-4xl">
+                <MessageList 
+                  messages={messages} 
+                  isTyping={isLoading}
+                  isSidebarOpen={isSidebarOpen}
+                />
+              </div>
             </div>
-            <div className="px-6 py-4">
-              <MessageInput 
-                onSendMessage={handleMessageInput}
-                isLoading={isLoading}
-                value={inputMessage}
-                onChange={handleUserTyping}
-              />
-              {error && (
-                <p className="mt-2 text-red-500 text-sm text-center">{error}</p>
-              )}
+            <div className="px-6 py-4 flex justify-center">
+              <div className="w-full max-w-4xl">
+                <MessageInput 
+                  onSendMessage={handleMessageInput}
+                  isLoading={isLoading}
+                  value={inputMessage}
+                  onChange={handleUserTyping}
+                />
+                {error && (
+                  <p className="mt-2 text-red-500 text-sm text-center">{error}</p>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -606,13 +610,12 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-screen bg-white">
-      <DynamicAvatar state={getAvatarState()} />
       {showFirstTimeInfo && (
         <FirstTimeInfo onClose={() => setShowFirstTimeInfo(false)} />
       )}
       
       {/* Sidebar */}
-      <aside className={`fixed md:relative w-60 h-full bg-gray-50 border-r transform transition-transform duration-300 ${
+      <aside className={`fixed md:relative w-56 h-full bg-gray-50 border-r transform transition-transform duration-300 ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } md:translate-x-0 z-30`}>
         <div className="p-4 h-full flex flex-col">
@@ -797,13 +800,20 @@ export default function ChatInterface() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col h-full min-w-0 bg-white">
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden">
-          {renderContent()}
+        <div className="flex-1 overflow-hidden flex justify-center">
+          <div className="w-full max-w-4xl flex flex-col h-full">
+            {renderContent()}
+          </div>
         </div>
       </main>
+
+      {/* Right Column */}
+      <aside className="hidden md:flex flex-col items-center justify-center w-56 h-full bg-gray-50 border-l p-4">
+        <DynamicAvatar state={getAvatarState()} />
+        {/* Additional right column content here */}
+      </aside>
     </div>
   );
 }

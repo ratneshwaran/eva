@@ -16,12 +16,12 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
             initial={{ scale: 1 }}
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
-            className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center"
+            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
           >
             <motion.div
               animate={{ y: [0, -2, 0] }}
               transition={{ duration: 0.5, repeat: Infinity }}
-              className="text-white text-2xl"
+              className="text-white text-6xl"
             >
               😊
             </motion.div>
@@ -34,9 +34,9 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
             initial={{ rotate: 0 }}
             animate={{ rotate: [0, -5, 5, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center"
+            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
           >
-            <motion.div className="text-white text-2xl">
+            <motion.div className="text-white text-6xl">
               🤔
             </motion.div>
           </motion.div>
@@ -47,9 +47,9 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
           <motion.div
             animate={{ scale: [1, 1.03, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center"
+            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
           >
-            <div className="text-white text-2xl">
+            <div className="text-white text-6xl">
               😌
             </div>
           </motion.div>
@@ -60,9 +60,9 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
           <motion.div
             animate={{ y: [0, -3, 0] }}
             transition={{ duration: 3, repeat: Infinity }}
-            className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center"
+            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
           >
-            <div className="text-white text-2xl">
+            <div className="text-white text-6xl">
               🙂
             </div>
           </motion.div>
@@ -71,7 +71,7 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
   };
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className="flex items-center justify-center h-full w-full">
       {getAvatarContent()}
     </div>
   );
