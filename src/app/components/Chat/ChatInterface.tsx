@@ -10,11 +10,13 @@ import { BsChatDots } from 'react-icons/bs';
 import { FaLungs, FaShieldAlt, FaInfoCircle, FaHeart, FaDog } from 'react-icons/fa';
 import { GiMeditation } from 'react-icons/gi';
 import { MdOutlineSos } from 'react-icons/md';
-import { PiDogFill } from 'react-icons/pi';
+import { IoSettingsSharp } from 'react-icons/io5';
 import BreathingExercises from '../Breathing/BreathingExercises';
 import CrisisResources from '../Crisis/CrisisResources';
 import EthicsPrinciples from '../Ethics/EthicsPrinciples';
+import Settings from '../Settings/Settings';
 import Avatar from './Avatar';
+import SoundManager from '@/app/utils/sounds';
 
 const WELCOME_MESSAGE = `Hi! I'm Eva, and I'm here to listen and support you.
 
@@ -119,10 +121,13 @@ export default function ChatInterface() {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [typingMessage, setTypingMessage] = useState('');
+  const [typingIndex, setTypingIndex] = useState(0);
+  const typingSpeed = 30; // milliseconds per character
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState('chat');
+  const [activeSection, setActiveSection] = useState<'chat' | 'breathing' | 'crisis' | 'ethics' | 'settings'>('chat');
   const [showFirstTimeInfo, setShowFirstTimeInfo] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentChatId, setCurrentChatId] = useState<string>('default');
@@ -136,29 +141,151 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [deletedMessages, setDeletedMessages] = useState<{
+    id: string;
+    content: string;
+    timestamp: Date;
+    chatId: string;
+  }[]>([]);
+  const [userSettings, setUserSettings] = useState({
+    soundEnabled: false,
+    desktopEnabled: false,
+    saveHistory: true,
+    allowDataCollection: true
+  });
 
   // Load chat history from localStorage on component mount
   useEffect(() => {
-    const savedHistory = localStorage.getItem('chatHistory');
-    if (savedHistory) {
-      const parsedHistory = JSON.parse(savedHistory);
-      // Convert string timestamps back to Date objects
-      const historyWithDates = parsedHistory.map((chat: any) => ({
-        ...chat,
-        timestamp: new Date(chat.timestamp),
-        messages: chat.messages.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        }))
-      }));
-      setChatHistory(historyWithDates);
+    // Pull saved chat history, fall back to default welcome chat if none exists
+    const saved = localStorage.getItem('chatHistory');
+    let historyWithDates: typeof chatHistory = [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        historyWithDates = parsed.map((chat: any) => ({
+          ...chat,
+          timestamp: new Date(chat.timestamp),
+          messages: chat.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) }))
+        }));
+      } catch {
+        historyWithDates = [];
+      }
     }
+    // If no previous chats, seed with welcome message
+    if (historyWithDates.length === 0) {
+      const defaultChat = {
+        id: 'default',
+        preview: WELCOME_MESSAGE.slice(0, 30) + (WELCOME_MESSAGE.length > 30 ? '...' : ''),
+        title: 'Welcome',
+        messages: [
+          { id: 'welcome', role: 'assistant' as 'assistant', content: WELCOME_MESSAGE, timestamp: new Date() }
+        ] as Message[],
+        timestamp: new Date()
+      };
+      historyWithDates = [defaultChat];
+    }
+    setChatHistory(historyWithDates);
+    setCurrentChatId(historyWithDates[0].id);
+    // Initialize messages from history
+    setMessages(historyWithDates[0].messages);
   }, []);
 
   // Save chat history to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
   }, [chatHistory]);
+
+  // Load deleted messages from localStorage
+  useEffect(() => {
+    const savedDeletedMessages = localStorage.getItem('deletedMessages');
+    if (savedDeletedMessages) {
+      const parsedMessages = JSON.parse(savedDeletedMessages);
+      // Convert string timestamps back to Date objects
+      const messagesWithDates = parsedMessages.map((msg: any) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      }));
+      setDeletedMessages(messagesWithDates);
+    }
+  }, []);
+
+  // Save deleted messages to localStorage
+  useEffect(() => {
+    localStorage.setItem('deletedMessages', JSON.stringify(deletedMessages));
+  }, [deletedMessages]);
+
+  // Modify the chat history sync effect to be more precise
+  useEffect(() => {
+    if (activeSection === 'chat' && !isLoading && !isTyping) {
+      setChatHistory(prev => {
+        const idx = prev.findIndex(c => c.id === currentChatId);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          messages: messages,
+          timestamp: new Date()
+        };
+        return updated;
+      });
+    }
+  }, [messages, currentChatId, activeSection, isLoading, isTyping]);
+
+  // Load user settings from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('userSettings');
+    if (savedSettings) {
+      setUserSettings(JSON.parse(savedSettings));
+    }
+  }, []);
+
+  // Initialize audio context on first user interaction
+  const initializeAudio = () => {
+    if (userSettings.soundEnabled) {
+      SoundManager.preloadSounds();
+    }
+  };
+
+  // Add click handler to document to initialize audio
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      initializeAudio();
+      document.removeEventListener('click', handleFirstInteraction);
+    };
+    document.addEventListener('click', handleFirstInteraction);
+    return () => document.removeEventListener('click', handleFirstInteraction);
+  }, []);
+
+  // Function to simulate typing effect
+  const simulateTyping = async (message: string) => {
+    setIsTyping(true);
+    setTypingMessage('');
+    setTypingIndex(0);
+
+    return new Promise<void>((resolve) => {
+      const typeNextChar = () => {
+        setTypingMessage(prev => prev + message[typingIndex]);
+        setTypingIndex(prevIndex => {
+          if (prevIndex + 1 === message.length) {
+            setIsTyping(false);
+            resolve();
+            return prevIndex;
+          }
+          return prevIndex + 1;
+        });
+      };
+
+      const typingInterval = setInterval(() => {
+        if (typingIndex < message.length) {
+          typeNextChar();
+        } else {
+          clearInterval(typingInterval);
+        }
+      }, typingSpeed);
+
+      return () => clearInterval(typingInterval);
+    });
+  };
 
   const startNewChat = () => {
     const newChatId = Date.now().toString();
@@ -189,10 +316,14 @@ export default function ChatInterface() {
     const chat = chatHistory.find(c => c.id === chatId);
     if (chat) {
       setCurrentChatId(chatId);
-      setMessages(chat.messages);
+      // Ensure we're not in the middle of typing when loading a new chat
+      setIsTyping(false);
+      setIsLoading(false);
+      setMessages(chat.messages.map(msg => ({ ...msg, isTyping: false })));
     }
   };
 
+  // Modify handleSendMessage to handle message updates more carefully
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || isLoading) return;
 
@@ -203,45 +334,19 @@ export default function ChatInterface() {
       timestamp: new Date()
     };
     
-    const updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
+    setMessages(prev => [...prev, newMessage]);
     setInputMessage('');
     setIsLoading(true);
     setError(null);
 
-    // Update chat history
-    setChatHistory(prev => {
-      const chatIndex = prev.findIndex(c => c.id === currentChatId);
-      if (chatIndex === -1) {
-        // If this is a new chat, add it to history
-        return [{
-          id: currentChatId,
-          preview: content.slice(0, 30) + (content.length > 30 ? '...' : ''),
-          title: content.slice(0, 30) + (content.length > 30 ? '...' : ''),
-          messages: updatedMessages,
-          timestamp: new Date()
-        }, ...prev];
-      }
-      // Update existing chat
-      const updatedHistory = [...prev];
-      updatedHistory[chatIndex] = {
-        ...updatedHistory[chatIndex],
-        preview: content.slice(0, 30) + (content.length > 30 ? '...' : ''),
-        messages: updatedMessages,
-        timestamp: new Date()
-      };
-      return updatedHistory;
-    });
-
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: updatedMessages,
-        }),
+          messages: [...messages, newMessage],
+          allowDataCollection: userSettings.allowDataCollection
+        })
       });
 
       if (!response.ok) {
@@ -249,36 +354,55 @@ export default function ChatInterface() {
       }
 
       const data = await response.json();
-      
       if (!data.message) {
         throw new Error('Invalid response from server');
       }
-      
-      const aiMessage: Message = {
+
+      // Create the assistant message first
+      const assistantMessage: Message = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: data.message,
-        timestamp: new Date()
+        content: '',
+        timestamp: new Date(),
+        isTyping: true
       };
 
-      const finalMessages = [...updatedMessages, aiMessage];
-      setMessages(finalMessages);
+      // Add the empty assistant message
+      setMessages(prev => [...prev, assistantMessage]);
 
-      // Update chat history with AI response
-      setChatHistory(prev => {
-        const chatIndex = prev.findIndex(c => c.id === currentChatId);
-        const updatedHistory = [...prev];
-        updatedHistory[chatIndex] = {
-          ...updatedHistory[chatIndex],
-          messages: finalMessages,
-          timestamp: new Date()
-        };
-        return updatedHistory;
-      });
+      // Type out the message
+      let typedContent = '';
+      for (const char of data.message) {
+        typedContent += char;
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === assistantMessage.id
+              ? { ...msg, content: typedContent }
+              : msg
+          )
+        );
+        await new Promise(resolve => setTimeout(resolve, typingSpeed));
+      }
+
+      // Mark typing as complete
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === assistantMessage.id
+            ? { ...msg, isTyping: false }
+            : msg
+        )
+      );
+
+      // Play sound if enabled
+      if (userSettings.soundEnabled) {
+        await SoundManager.playSound('messageReceived', 0.5);
+      }
 
     } catch (error) {
       console.error('Error:', error);
       setError('Failed to send message. Please try again.');
+      // Remove the failed message
+      setMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
     } finally {
       setIsLoading(false);
     }
@@ -299,15 +423,27 @@ export default function ChatInterface() {
   };
 
   const deleteChat = (chatId: string, event: React.MouseEvent) => {
-    event?.stopPropagation(); // Prevent triggering the chat selection if event exists
+    event?.stopPropagation();
+    // Store the messages before deleting the chat
+    const chatToDelete = chatHistory.find(chat => chat.id === chatId);
+    if (chatToDelete) {
+      const messagesToStore = chatToDelete.messages
+        .filter(msg => msg.role === 'user')
+        .map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          timestamp: msg.timestamp,
+          chatId: chatId
+        }));
+      setDeletedMessages(prev => [...messagesToStore, ...prev]);
+    }
+    
     setChatHistory(prev => prev.filter(chat => chat.id !== chatId));
     
-    // If the deleted chat was the current chat, start a new chat
     if (chatId === currentChatId) {
       if (chatHistory.length <= 1) {
         startNewChat();
       } else {
-        // Switch to the most recent remaining chat
         const remainingChats = chatHistory.filter(chat => chat.id !== chatId);
         if (remainingChats.length > 0) {
           const mostRecentChat = remainingChats[0];
@@ -315,6 +451,23 @@ export default function ChatInterface() {
           setMessages(mostRecentChat.messages);
         }
       }
+    }
+  };
+
+  const handleRestoreMessage = (messageId: string) => {
+    const messageToRestore = deletedMessages.find(msg => msg.id === messageId);
+    if (messageToRestore) {
+      // Add the message to the current chat
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: messageToRestore.content,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, newMessage]);
+      
+      // Remove from deleted messages
+      setDeletedMessages(prev => prev.filter(msg => msg.id !== messageId));
     }
   };
 
@@ -344,19 +497,35 @@ export default function ChatInterface() {
     }
   };
 
+  // Clear any typing flags on initial mount so old messages stay static
+  useEffect(() => {
+    setMessages(prev => prev.map(msg => ({ ...msg, isTyping: false })));
+  }, []);
+
+  const handleSectionChange = (section: 'chat' | 'breathing' | 'crisis' | 'ethics' | 'settings') => {
+    if (section === 'chat') {
+      // When returning to chat, load the current chat's messages
+      const currentChat = chatHistory.find(chat => chat.id === currentChatId);
+      if (currentChat) {
+        setMessages(currentChat.messages);
+      }
+    }
+    setActiveSection(section);
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'chat':
         return (
           <div className="flex-1 flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-6">
-              <MessageList 
-                messages={messages} 
-                isTyping={isLoading}
-                isSidebarOpen={isSidebarOpen}
-              />
-            </div>
-            <div className="px-6 py-4 -mt-8">
+            <div className="flex-1 overflow-y-auto p-6 pb-10">
+                <MessageList 
+                  messages={messages} 
+                  isTyping={isLoading}
+                  isSidebarOpen={isSidebarOpen}
+                />
+              </div>
+            <div className="px-6 py-4">
               <MessageInput 
                 onSendMessage={handleMessageInput}
                 isLoading={isLoading}
@@ -373,6 +542,23 @@ export default function ChatInterface() {
         return <div className="h-full overflow-y-auto"><CrisisResources /></div>;
       case 'ethics':
         return <div className="h-full overflow-y-auto"><EthicsPrinciples /></div>;
+      case 'settings':
+        return (
+          <div className="h-full overflow-y-auto">
+            <Settings
+              deletedMessages={deletedMessages}
+              onRestoreMessage={handleRestoreMessage}
+              soundEnabled={userSettings.soundEnabled}
+              desktopEnabled={userSettings.desktopEnabled}
+              saveHistory={userSettings.saveHistory}
+              allowDataCollection={userSettings.allowDataCollection}
+              onSettingsChange={(newSettings) => {
+                setUserSettings(newSettings);
+                localStorage.setItem('userSettings', JSON.stringify(newSettings));
+              }}
+            />
+          </div>
+        );
       default:
         return null;
     }
@@ -391,11 +577,17 @@ export default function ChatInterface() {
         <div className="p-4 h-full flex flex-col">
           {/* Logo and Version */}
           <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <PiDogFill className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-blue-600">Eva</span>
+              <a
+                href="https://40seconds.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                by 40seconds.org
+              </a>
             </div>
-            <span className="text-2xl font-bold text-blue-600">Eva</span>
-            <span className="text-sm font-medium text-gray-600 ml-auto px-2 py-0.5 bg-gray-100 rounded">Beta</span>
           </div>
 
           {/* New Chat Button */}
@@ -437,7 +629,7 @@ export default function ChatInterface() {
                         chat.preview.toLowerCase().includes(searchQuery.toLowerCase()) : 
                         true
                     )
-                    .map((chat) => (
+                    .map(chat => (
                       <div key={chat.id} className="flex items-center px-2">
                         <div className="flex-1 flex items-center min-w-0">
                           {editingChatId === chat.id ? (
@@ -492,9 +684,7 @@ export default function ChatInterface() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm('Are you sure you want to delete this conversation?')) {
-                              deleteChat(chat.id, e);
-                            }
+                            deleteChat(chat.id, e);
                           }}
                           className="p-2 text-gray-400 hover:text-red-500 transition-colors ml-1"
                           title="Delete conversation"
@@ -514,7 +704,7 @@ export default function ChatInterface() {
               <div className="text-sm font-semibold text-gray-600 mb-2 px-2">Support Tools</div>
               <div className="space-y-2">
                 <button
-                  onClick={() => setActiveSection('breathing')}
+                  onClick={() => handleSectionChange('breathing')}
                   className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
                     activeSection === 'breathing'
                       ? 'bg-blue-100 text-blue-600'
@@ -526,7 +716,7 @@ export default function ChatInterface() {
                 </button>
                 
                 <button
-                  onClick={() => setActiveSection('crisis')}
+                  onClick={() => handleSectionChange('crisis')}
                   className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
                     activeSection === 'crisis'
                       ? 'bg-blue-100 text-blue-600'
@@ -538,7 +728,7 @@ export default function ChatInterface() {
                 </button>
                 
                 <button
-                  onClick={() => setActiveSection('ethics')}
+                  onClick={() => handleSectionChange('ethics')}
                   className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
                     activeSection === 'ethics'
                       ? 'bg-blue-100 text-blue-600'
@@ -548,6 +738,18 @@ export default function ChatInterface() {
                   <FaShieldAlt className="w-6 h-6 mr-3" />
                   <span className="font-medium">Ethics</span>
                 </button>
+                
+                <button
+                  onClick={() => handleSectionChange('settings')}
+                  className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
+                    activeSection === 'settings'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <IoSettingsSharp className="w-6 h-6 mr-3" />
+                  <span className="font-medium">Settings</span>
+                </button>
               </div>
             </div>
           </div>
@@ -555,29 +757,7 @@ export default function ChatInterface() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full min-w-0">
-        {/* Header */}
-        <header className="h-16 border-b flex items-center px-4 justify-between bg-white">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
-          >
-            {isSidebarOpen ? <IoClose size={24} /> : <IoMenu size={24} />}
-          </button>
-          <div className="flex items-center gap-4 flex-1">
-            <h1 className="text-2xl font-bold">
-              <span className="text-gray-700">A Safe Space to Talk</span>
-            </h1>
-          </div>
-          <button
-            onClick={() => setShowFirstTimeInfo(true)}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors"
-          >
-            <FaInfoCircle size={20} />
-            <span className="text-sm font-semibold">About Eva</span>
-          </button>
-        </header>
-
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-white">
         {/* Content Area */}
         <div className="flex-1 overflow-hidden">
           {renderContent()}

@@ -176,10 +176,16 @@ export default function FeatureNavigation() {
           </div>
         )}
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="h-full">
-            {renderFeature()}
+        {/* Main Content: always render each feature but toggle via hidden class */}
+        <div className="flex-1 overflow-y-auto relative">
+          <div className={`${activeFeature === 'chat' ? 'block' : 'hidden'} h-full`}> 
+            <ChatInterface />
+          </div>
+          <div className={`${activeFeature === 'breathing' ? 'block' : 'hidden'} h-full`}> 
+            <BreathingExercise />
+          </div>
+          <div className={`${activeFeature === 'resources' ? 'block' : 'hidden'} h-full`}> 
+            <CrisisSupport />
           </div>
         </div>
       </div>

@@ -4,10 +4,4 @@ export interface Message {
   content: string;
   timestamp: Date;
   isTyping?: boolean;
-}
-
-export interface ChatState {
-  messages: Message[];
-  isLoading: boolean;
-  error: string | null;
 } 
