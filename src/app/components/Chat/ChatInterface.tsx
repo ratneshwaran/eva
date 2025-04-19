@@ -127,7 +127,7 @@ export default function ChatInterface() {
   const typingSpeed = 30; // milliseconds per character
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'chat' | 'breathing' | 'crisis' | 'ethics' | 'settings'>('chat');
   const [showFirstTimeInfo, setShowFirstTimeInfo] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -556,8 +556,8 @@ export default function ChatInterface() {
       case 'chat':
         return (
           <div className="flex-1 flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-6 pb-10">
-              <div className="mx-auto w-full max-w-4xl">
+            <div className="flex-1 overflow-y-auto p-4 pb-2">
+              <div className="w-full max-w-full md:max-w-4xl mx-auto">
                 <MessageList 
                   messages={messages} 
                   isTyping={isLoading}
@@ -565,8 +565,8 @@ export default function ChatInterface() {
                 />
               </div>
             </div>
-            <div className="px-6 py-4 flex justify-center">
-              <div className="w-full max-w-4xl">
+            <div className="px-4 py-3 flex md:justify-center justify-start">
+              <div className="w-full max-w-full md:max-w-4xl">
                 <MessageInput 
                   onSendMessage={handleMessageInput}
                   isLoading={isLoading}
@@ -610,6 +610,15 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-screen bg-white">
+      {/* Mobile menu button */}
+      <div className="md:hidden absolute top-2 left-2 z-40">
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-2 rounded bg-gray-100 shadow"
+        >
+          <IoMenu className="w-6 h-6 text-gray-700" />
+        </button>
+      </div>
       {showFirstTimeInfo && (
         <FirstTimeInfo onClose={() => setShowFirstTimeInfo(false)} />
       )}
@@ -802,8 +811,8 @@ export default function ChatInterface() {
 
       <main className="flex-1 flex flex-col h-full min-w-0 bg-white">
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden flex justify-center">
-          <div className="w-full max-w-4xl flex flex-col h-full">
+        <div className="flex-1 overflow-hidden flex md:justify-center justify-start">
+          <div className="w-full max-w-full md:max-w-4xl flex flex-col h-full">
             {renderContent()}
           </div>
         </div>
