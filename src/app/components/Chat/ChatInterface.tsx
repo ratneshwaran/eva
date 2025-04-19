@@ -155,7 +155,7 @@ export default function ChatInterface() {
     allowDataCollection: true
   });
   const [isUserTyping, setIsUserTyping] = useState(false);
-  const userTypingTimeoutRef = useRef<NodeJS.Timeout>();
+  const userTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load chat history from localStorage on component mount
   useEffect(() => {
@@ -612,7 +612,7 @@ export default function ChatInterface() {
       )}
       
       {/* Sidebar */}
-      <aside className={`fixed md:relative w-72 h-full bg-gray-50 border-r transform transition-transform duration-300 ${
+      <aside className={`fixed md:relative w-60 h-full bg-gray-50 border-r transform transition-transform duration-300 ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } md:translate-x-0 z-30`}>
         <div className="p-4 h-full flex flex-col">
