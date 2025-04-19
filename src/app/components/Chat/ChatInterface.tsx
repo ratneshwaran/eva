@@ -17,6 +17,7 @@ import EthicsPrinciples from '../Ethics/EthicsPrinciples';
 import Settings from '../Settings/Settings';
 import Avatar from './Avatar';
 import SoundManager from '@/app/utils/sounds';
+import DynamicAvatar from './DynamicAvatar';
 
 const WELCOME_MESSAGE = `Hi! I'm Eva, and I'm here to listen and support you.
 
@@ -153,6 +154,8 @@ export default function ChatInterface() {
     saveHistory: true,
     allowDataCollection: true
   });
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const userTypingTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Load chat history from localStorage on component mount
   useEffect(() => {
@@ -513,22 +516,59 @@ export default function ChatInterface() {
     setActiveSection(section);
   };
 
+  // Add this function to handle user typing detection
+  const handleUserTyping = (value: string) => {
+    setInputMessage(value);
+    
+    // Update user typing state
+    setIsUserTyping(true);
+    
+    // Clear existing timeout
+    if (userTypingTimeoutRef.current) {
+      clearTimeout(userTypingTimeoutRef.current);
+    }
+    
+    // Set new timeout to clear typing state
+    userTypingTimeoutRef.current = setTimeout(() => {
+      setIsUserTyping(false);
+    }, 1000);
+  };
+
+  // Clean up typing detection timeout
+  useEffect(() => {
+    return () => {
+      if (userTypingTimeoutRef.current) {
+        clearTimeout(userTypingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Determine avatar state
+  const getAvatarState = () => {
+    if (isUserTyping) return 'userTyping';
+    if (isTyping || isLoading) return 'aiTyping';
+    if (messages.length > 1) return 'waiting';
+    return 'idle';
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'chat':
         return (
           <div className="flex-1 flex flex-col h-full">
             <div className="flex-1 overflow-y-auto p-6 pb-10">
-                <MessageList 
-                  messages={messages} 
-                  isTyping={isLoading}
-                  isSidebarOpen={isSidebarOpen}
-                />
-              </div>
+              <MessageList 
+                messages={messages} 
+                isTyping={isLoading}
+                isSidebarOpen={isSidebarOpen}
+              />
+            </div>
             <div className="px-6 py-4">
               <MessageInput 
                 onSendMessage={handleMessageInput}
                 isLoading={isLoading}
+                value={inputMessage}
+                onChange={handleUserTyping}
               />
               {error && (
                 <p className="mt-2 text-red-500 text-sm text-center">{error}</p>
@@ -566,6 +606,7 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-screen bg-white">
+      <DynamicAvatar state={getAvatarState()} />
       {showFirstTimeInfo && (
         <FirstTimeInfo onClose={() => setShowFirstTimeInfo(false)} />
       )}

@@ -6,19 +6,29 @@ import { IoSend } from 'react-icons/io5';
 interface MessageInputProps {
   onSendMessage: (message: string) => void;
   isLoading?: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
-export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, isLoading = false }) => {
-  const [inputValue, setInputValue] = useState('');
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
-  };
+export function MessageInput({ onSendMessage, isLoading = false, value, onChange }: MessageInputProps) {
+  const [localMessage, setLocalMessage] = useState('');
 
   const handleSend = () => {
-    if (inputValue.trim() && !isLoading) {
-      onSendMessage(inputValue.trim());
-      setInputValue('');
+    const messageToSend = value || localMessage;
+    if (messageToSend.trim() && !isLoading) {
+      onSendMessage(messageToSend);
+      if (!onChange) {
+        setLocalMessage('');
+      }
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    if (onChange) {
+      onChange(newValue);
+    } else {
+      setLocalMessage(newValue);
     }
   };
 
@@ -32,7 +42,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, isLoa
   return (
     <div className="flex items-center gap-3">
       <textarea
-        value={inputValue}
+        value={value || localMessage}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder="Type your message..."
@@ -42,7 +52,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, isLoa
       />
       <button
         onClick={handleSend}
-        disabled={!inputValue.trim() || isLoading}
+        disabled={!(value || localMessage).trim() || isLoading}
         className="w-12 h-12 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 shadow-sm"
         aria-label="Send message"
       >
@@ -50,4 +60,4 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, isLoa
       </button>
     </div>
   );
-};
+}
