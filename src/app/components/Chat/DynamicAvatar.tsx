@@ -71,7 +71,7 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
   };
 
   return (
-    <div className="flex items-center justify-center h-full w-full">
+    <div className="flex items-center justify-center">
       {getAvatarContent()}
     </div>
   );

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
-import { Message } from '@/types/chat';
+import type { Message } from '@/types/chat';
 import MessageList from './MessageList';
 import { MessageInput } from './MessageInput';
 import { IoMenu, IoClose } from 'react-icons/io5';
@@ -15,9 +15,9 @@ import BreathingExercises from '../Breathing/BreathingExercises';
 import CrisisResources from '../Crisis/CrisisResources';
 import EthicsPrinciples from '../Ethics/EthicsPrinciples';
 import Settings from '../Settings/Settings';
-import Avatar from './Avatar';
+import Avatar from './Avatar'; // static avatar
 import SoundManager from '@/app/utils/sounds';
-import DynamicAvatar from './DynamicAvatar';
+import DynamicAvatar from './DynamicAvatar'; // floating avatar
 
 const WELCOME_MESSAGE = `Hi! I'm Eva, and I'm here to listen and support you.
 
@@ -166,8 +166,8 @@ export default function ChatInterface() {
       try {
         const parsed = JSON.parse(saved);
         historyWithDates = parsed.map((chat: any) => ({
-          ...chat,
-          timestamp: new Date(chat.timestamp),
+        ...chat,
+        timestamp: new Date(chat.timestamp),
           messages: chat.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) }))
         }));
       } catch {
@@ -369,7 +369,7 @@ export default function ChatInterface() {
         timestamp: new Date(),
         isTyping: true
       };
-
+      
       // Add the empty assistant message
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -555,28 +555,28 @@ export default function ChatInterface() {
     switch (activeSection) {
       case 'chat':
         return (
-          <div className="flex-1 flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-4 pb-2">
-              <div className="w-full max-w-full md:max-w-4xl mx-auto">
-                <MessageList 
-                  messages={messages} 
-                  isTyping={isLoading}
-                  isSidebarOpen={isSidebarOpen}
-                />
-              </div>
+          <div className="relative flex-1 flex flex-col h-full">
+            {/* Floating Avatar Top Right in Chat view */}
+            <div className="absolute top-4 right-4 z-50">
+              <DynamicAvatar state={getAvatarState()} />
             </div>
-            <div className="px-4 py-3 flex md:justify-center justify-start">
-              <div className="w-full max-w-full md:max-w-4xl">
-                <MessageInput 
-                  onSendMessage={handleMessageInput}
-                  isLoading={isLoading}
-                  value={inputMessage}
-                  onChange={handleUserTyping}
-                />
-                {error && (
-                  <p className="mt-2 text-red-500 text-sm text-center">{error}</p>
-                )}
-              </div>
+            <div className="flex-1 overflow-y-auto p-6 pb-10">
+              <MessageList 
+                messages={messages} 
+                isTyping={isLoading}
+                isSidebarOpen={isSidebarOpen}
+              />
+            </div>
+            <div className="px-6 py-4">
+              <MessageInput 
+                onSendMessage={handleMessageInput}
+                isLoading={isLoading}
+                value={inputMessage}
+                onChange={handleUserTyping}
+              />
+              {error && (
+                <p className="mt-2 text-red-500 text-sm text-center">{error}</p>
+              )}
             </div>
           </div>
         );
@@ -610,7 +610,7 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-screen bg-white">
-      {/* Mobile menu button */}
+      {/* Mobile menu toggle */}
       <div className="md:hidden absolute top-2 left-2 z-40">
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -619,10 +619,7 @@ export default function ChatInterface() {
           <IoMenu className="w-6 h-6 text-gray-700" />
         </button>
       </div>
-      {showFirstTimeInfo && (
-        <FirstTimeInfo onClose={() => setShowFirstTimeInfo(false)} />
-      )}
-      
+
       {/* Sidebar */}
       <aside className={`fixed md:relative w-56 h-full bg-gray-50 border-r transform transition-transform duration-300 ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -809,20 +806,10 @@ export default function ChatInterface() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-white">
-        {/* Content Area */}
-        <div className="flex-1 overflow-hidden flex md:justify-center justify-start">
-          <div className="w-full max-w-full md:max-w-4xl flex flex-col h-full">
-            {renderContent()}
-          </div>
-        </div>
+      {/* Main Content */}
+      <main className="relative flex-1 flex flex-col h-full min-w-0 bg-white">
+        {renderContent()}
       </main>
-
-      {/* Right Column */}
-      <aside className="hidden md:flex flex-col items-center justify-center w-56 h-full bg-gray-50 border-l p-4">
-        <DynamicAvatar state={getAvatarState()} />
-        {/* Additional right column content here */}
-      </aside>
     </div>
   );
 }
