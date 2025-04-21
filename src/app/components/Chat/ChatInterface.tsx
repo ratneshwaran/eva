@@ -611,12 +611,17 @@ export default function ChatInterface() {
   return (
     <div className="flex h-screen bg-white">
       {/* Mobile menu toggle */}
-      <div className="md:hidden absolute top-2 left-2 z-40">
+      <div className={`md:hidden absolute top-2 ${isSidebarOpen ? 'left-56' : 'left-2'} z-40`}>
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-2 rounded bg-gray-100 shadow"
+          aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
+          className="p-2 rounded bg-gray-100 shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <IoMenu className="w-6 h-6 text-gray-700" />
+          {isSidebarOpen ? (
+            <IoClose className="w-6 h-6 text-gray-700" />
+          ) : (
+            <IoMenu className="w-6 h-6 text-gray-700" />
+          )}
         </button>
       </div>
 
