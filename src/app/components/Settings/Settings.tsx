@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface DeletedMessage {
   id: string;
   content: string;
   timestamp: Date;
   chatId: string;
-}
-
-interface UserSettings {
-  soundEnabled: boolean;
-  desktopEnabled: boolean;
-  saveHistory: boolean;
-  allowDataCollection: boolean;
 }
 
 interface SettingsProps {
@@ -21,7 +16,14 @@ interface SettingsProps {
   desktopEnabled: boolean;
   saveHistory: boolean;
   allowDataCollection: boolean;
-  onSettingsChange: (settings: UserSettings) => void;
+  theme: 'blue' | 'purple' | 'green';
+  onSettingsChange: (settings: {
+    soundEnabled: boolean;
+    desktopEnabled: boolean;
+    saveHistory: boolean;
+    allowDataCollection: boolean;
+    theme: 'blue' | 'purple' | 'green';
+  }) => void;
 }
 
 export default function Settings({ 
@@ -31,18 +33,15 @@ export default function Settings({
   desktopEnabled,
   saveHistory,
   allowDataCollection,
+  theme,
   onSettingsChange
 }: SettingsProps) {
+  const { theme: currentTheme } = useTheme();
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'general' | 'history'>('general');
 
-  const handleSettingChange = (setting: keyof UserSettings, value: boolean) => {
-    onSettingsChange({
-      soundEnabled,
-      desktopEnabled,
-      saveHistory,
-      allowDataCollection,
-      [setting]: value
-    });
+  const handleSettingChange = (setting: keyof Omit<SettingsProps, 'deletedMessages' | 'onRestoreMessage' | 'theme' | 'onSettingsChange'>, value: boolean) => {
+    onSettingsChange({ soundEnabled, desktopEnabled, saveHistory, allowDataCollection, theme: currentTheme });
   };
 
   useEffect(() => {
@@ -67,7 +66,7 @@ export default function Settings({
           onClick={() => setActiveTab('general')}
           className={`pb-2 px-1 ${
             activeTab === 'general'
-              ? 'border-b-2 border-blue-600 text-blue-600'
+              ? `border-b-2 border-${currentTheme}-600 text-${currentTheme}-600`
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -77,7 +76,7 @@ export default function Settings({
           onClick={() => setActiveTab('history')}
           className={`pb-2 px-1 ${
             activeTab === 'history'
-              ? 'border-b-2 border-blue-600 text-blue-600'
+              ? `border-b-2 border-${currentTheme}-600 text-${currentTheme}-600`
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -99,7 +98,7 @@ export default function Settings({
                     type="checkbox"
                     checked={soundEnabled}
                     onChange={(e) => handleSettingChange('soundEnabled', e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
                   />
                 </label>
                 <label className="flex items-center justify-between">
@@ -108,7 +107,7 @@ export default function Settings({
                     type="checkbox"
                     checked={desktopEnabled}
                     onChange={(e) => handleSettingChange('desktopEnabled', e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
                   />
                 </label>
               </div>
@@ -124,7 +123,7 @@ export default function Settings({
                     type="checkbox"
                     checked={saveHistory}
                     onChange={(e) => handleSettingChange('saveHistory', e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
                   />
                 </label>
                 <label className="flex items-center justify-between">
@@ -133,9 +132,42 @@ export default function Settings({
                     type="checkbox"
                     checked={allowDataCollection}
                     onChange={(e) => handleSettingChange('allowDataCollection', e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
                   />
                 </label>
+              </div>
+            </div>
+
+            {/* Account */}
+            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Account</h3>
+              {user && (
+                <button
+                  onClick={() => signOut()}
+                  className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  Logout ({user.email})
+                </button>
+              )}
+            </div>
+
+            {/* Theme Selection */}
+            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Theme</h3>
+              <div className="space-y-2">
+                {(['blue','purple','green'] as const).map(color => (
+                  <label key={color} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="theme"
+                      value={color}
+                      checked={theme === color}
+                      onChange={() => onSettingsChange({ soundEnabled, desktopEnabled, saveHistory, allowDataCollection, theme: color })}
+                      className={`form-radio h-4 w-4 text-${color}-600`}
+                    />
+                    <span className="capitalize text-gray-700">{color}</span>
+                  </label>
+                ))}
               </div>
             </div>
           </div>
@@ -158,7 +190,7 @@ export default function Settings({
                       {onRestoreMessage && (
                         <button
                           onClick={() => onRestoreMessage(message.id)}
-                          className="ml-4 text-sm text-blue-600 hover:text-blue-700"
+                          className={`ml-4 text-sm text-${currentTheme}-600 hover:text-${currentTheme}-700`}
                         >
                           Restore
                         </button>

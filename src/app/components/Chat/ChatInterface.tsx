@@ -18,6 +18,7 @@ import Settings from '../Settings/Settings';
 import Avatar from './Avatar'; // static avatar
 import SoundManager from '@/app/utils/sounds';
 import DynamicAvatar from './DynamicAvatar'; // floating avatar
+import { useTheme } from '../../contexts/ThemeContext';
 
 const WELCOME_MESSAGE = `Hi! I'm Eva, and I'm here to listen and support you.
 
@@ -152,10 +153,38 @@ export default function ChatInterface() {
     soundEnabled: false,
     desktopEnabled: false,
     saveHistory: true,
-    allowDataCollection: true
+    allowDataCollection: true,
+    theme: 'blue' as 'blue' | 'purple' | 'green',
   });
+  const { theme, setTheme } = useTheme();
   const [isUserTyping, setIsUserTyping] = useState(false);
   const userTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Map each theme to its static Tailwind classes (ensures colors are included in the build)
+  const themeStyles = {
+    blue: {
+      primary600: 'bg-blue-600',
+      primary700: 'bg-blue-700',
+      primary100: 'bg-blue-100',
+      textPrimary600: 'text-blue-600',
+      borderPrimary600: 'border-blue-600',
+    },
+    purple: {
+      primary600: 'bg-purple-600',
+      primary700: 'bg-purple-700',
+      primary100: 'bg-purple-100',
+      textPrimary600: 'text-purple-600',
+      borderPrimary600: 'border-purple-600',
+    },
+    green: {
+      primary600: 'bg-green-600',
+      primary700: 'bg-green-700',
+      primary100: 'bg-green-100',
+      textPrimary600: 'text-green-600',
+      borderPrimary600: 'border-green-600',
+    },
+  } as const;
+  const { primary600, primary700, primary100, textPrimary600, borderPrimary600 } = themeStyles[theme];
 
   // Load chat history from localStorage on component mount
   useEffect(() => {
@@ -238,7 +267,10 @@ export default function ChatInterface() {
   useEffect(() => {
     const savedSettings = localStorage.getItem('userSettings');
     if (savedSettings) {
-      setUserSettings(JSON.parse(savedSettings));
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setUserSettings(parsed);
+      } catch {}
     }
   }, []);
 
@@ -551,6 +583,14 @@ export default function ChatInterface() {
     return 'idle';
   };
 
+  // When settings change (e.g. in Settings page)
+  const handleSettingsChange = (newSettings: typeof userSettings) => {
+    // Update global theme and local settings
+    setTheme(newSettings.theme);
+    setUserSettings(newSettings);
+    localStorage.setItem('userSettings', JSON.stringify(newSettings));
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'chat':
@@ -558,7 +598,7 @@ export default function ChatInterface() {
           <div className="relative flex-1 flex flex-col h-full">
             {/* Floating Avatar Top Right in Chat view */}
             <div className="absolute top-4 right-4 z-50">
-              <DynamicAvatar state={getAvatarState()} />
+              <DynamicAvatar state={getAvatarState()} theme={theme} />
             </div>
             <div className="flex-1 overflow-y-auto p-6 pb-10">
               <MessageList 
@@ -596,10 +636,8 @@ export default function ChatInterface() {
               desktopEnabled={userSettings.desktopEnabled}
               saveHistory={userSettings.saveHistory}
               allowDataCollection={userSettings.allowDataCollection}
-              onSettingsChange={(newSettings) => {
-                setUserSettings(newSettings);
-                localStorage.setItem('userSettings', JSON.stringify(newSettings));
-              }}
+              theme={theme}
+              onSettingsChange={handleSettingsChange}
             />
           </div>
         );
@@ -625,15 +663,15 @@ export default function ChatInterface() {
         </button>
       </div>
 
-      {/* Sidebar */}
-      <aside className={`fixed md:relative w-56 h-full bg-gray-50 border-r transform transition-transform duration-300 ${
+      {/* Detached, rounded sidebar */}
+      <aside className={`fixed inset-y-12 left-4 w-56 bg-white rounded-lg shadow-lg border border-gray-200 transform transition-transform duration-300 ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } md:translate-x-0 z-30`}>
+      } md:sticky md:top-4 md:bottom-auto md:translate-x-0 z-30 overflow-hidden`}>
         <div className="p-4 h-full flex flex-col">
           {/* Logo and Version */}
           <div className="flex items-center gap-2 mb-6">
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-blue-600">Eva</span>
+              <span className={`text-2xl font-bold ${textPrimary600}`}>Eva</span>
               <a
                 href="https://40seconds.org"
                 target="_blank"
@@ -648,10 +686,9 @@ export default function ChatInterface() {
           {/* New Chat Button */}
           <button
             onClick={startNewChat}
-            className="w-full mb-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className={`w-full mb-4 flex items-center justify-center p-2 rounded ${primary600} text-white hover:${primary700}`}
           >
-            <BsChatDots className="w-5 h-5" />
-            <span className="font-medium">New Chat</span>
+            <BsChatDots className="w-6 h-6" />
           </button>
 
           {/* Search */}
@@ -762,7 +799,7 @@ export default function ChatInterface() {
                   onClick={() => handleSectionChange('breathing')}
                   className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
                     activeSection === 'breathing'
-                      ? 'bg-blue-100 text-blue-600'
+                      ? `${primary100} ${textPrimary600}`
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -774,7 +811,7 @@ export default function ChatInterface() {
                   onClick={() => handleSectionChange('crisis')}
                   className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
                     activeSection === 'crisis'
-                      ? 'bg-blue-100 text-blue-600'
+                      ? `${primary100} ${textPrimary600}`
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -786,7 +823,7 @@ export default function ChatInterface() {
                   onClick={() => handleSectionChange('ethics')}
                   className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
                     activeSection === 'ethics'
-                      ? 'bg-blue-100 text-blue-600'
+                      ? `${primary100} ${textPrimary600}`
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -798,7 +835,7 @@ export default function ChatInterface() {
                   onClick={() => handleSectionChange('settings')}
                   className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
                     activeSection === 'settings'
-                      ? 'bg-blue-100 text-blue-600'
+                      ? `${primary100} ${textPrimary600}`
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >

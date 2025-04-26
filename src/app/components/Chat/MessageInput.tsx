@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { IoSend } from 'react-icons/io5';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void;
@@ -12,6 +13,13 @@ interface MessageInputProps {
 
 export function MessageInput({ onSendMessage, isLoading = false, value, onChange }: MessageInputProps) {
   const [localMessage, setLocalMessage] = useState('');
+  const { theme } = useTheme();
+  const buttonColorMap = {
+    blue: { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' },
+    purple: { bg: 'bg-purple-500', hover: 'hover:bg-purple-600' },
+    green: { bg: 'bg-green-500', hover: 'hover:bg-green-600' },
+  } as const;
+  const { bg, hover } = buttonColorMap[theme];
 
   const handleSend = () => {
     const messageToSend = value || localMessage;
@@ -53,7 +61,7 @@ export function MessageInput({ onSendMessage, isLoading = false, value, onChange
       <button
         onClick={handleSend}
         disabled={!(value || localMessage).trim() || isLoading}
-        className="w-12 h-12 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 shadow-sm"
+        className={`w-12 h-12 ${bg} text-white rounded-full ${hover} transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 shadow-sm`}
         aria-label="Send message"
       >
         <IoSend size={20} />

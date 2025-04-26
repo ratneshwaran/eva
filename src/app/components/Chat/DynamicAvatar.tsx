@@ -5,9 +5,11 @@ import { motion } from 'framer-motion';
 
 interface DynamicAvatarProps {
   state: 'idle' | 'userTyping' | 'aiTyping' | 'waiting';
+  theme?: 'blue' | 'purple' | 'green';
 }
 
 export default function DynamicAvatar({ state }: DynamicAvatarProps) {
+  const { theme = 'blue' } = (arguments[0] as DynamicAvatarProps);
   const getAvatarContent = () => {
     switch (state) {
       case 'userTyping':
@@ -16,7 +18,7 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
             initial={{ scale: 1 }}
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
-            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
           >
             <motion.div
               animate={{ y: [0, -2, 0] }}
@@ -34,7 +36,7 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
             initial={{ rotate: 0 }}
             animate={{ rotate: [0, -5, 5, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
           >
             <motion.div className="text-white text-6xl">
               🤔
@@ -47,7 +49,7 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
           <motion.div
             animate={{ scale: [1, 1.03, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
           >
             <div className="text-white text-6xl">
               😌
@@ -60,7 +62,7 @@ export default function DynamicAvatar({ state }: DynamicAvatarProps) {
           <motion.div
             animate={{ y: [0, -3, 0] }}
             transition={{ duration: 3, repeat: Infinity }}
-            className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center"
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
           >
             <div className="text-white text-6xl">
               🙂
