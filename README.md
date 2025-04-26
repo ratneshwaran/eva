@@ -57,6 +57,13 @@ A mental health support AI assistant that provides empathetic conversations and 
 - Keep your API keys secure
 - Use environment variables for sensitive data
 
+## Author
+
+- **Name**: Ratneshwaran Maheswaran
+- **Affiliation**: University College London
+- **Email**: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 ## License
 
-Copyright © 2024 40seconds.org. All rights reserved.
+Licensed under the Creative Commons Attribution 4.0 International License.
+To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
