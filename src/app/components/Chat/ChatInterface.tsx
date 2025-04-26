@@ -153,6 +153,13 @@ export default function ChatInterface() {
     timestamp: Date;
     chatId: string;
   }[]>([]);
+  const [deletedChats, setDeletedChats] = useState<{
+    id: string;
+    preview: string;
+    title: string;
+    messages: Message[];
+    timestamp: Date;
+  }[]>([]);
   const [userSettings, setUserSettings] = useState({
     soundEnabled: false,
     desktopEnabled: false,
@@ -214,7 +221,7 @@ export default function ChatInterface() {
         preview: WELCOME_MESSAGE.slice(0, 30) + (WELCOME_MESSAGE.length > 30 ? '...' : ''),
         title: 'Welcome',
         messages: [
-          { id: 'welcome', role: 'assistant' as 'assistant', content: WELCOME_MESSAGE, timestamp: new Date() }
+          { id: 'welcome', role: 'assistant' as const, content: WELCOME_MESSAGE, timestamp: new Date() }
         ] as Message[],
         timestamp: new Date()
       };
@@ -249,6 +256,27 @@ export default function ChatInterface() {
   useEffect(() => {
     localStorage.setItem('deletedMessages', JSON.stringify(deletedMessages));
   }, [deletedMessages]);
+
+  // Load deleted chats from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('deletedChats');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const chatsWithDates = parsed.map((chat: any) => ({
+          ...chat,
+          timestamp: new Date(chat.timestamp),
+          messages: chat.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+        }));
+        setDeletedChats(chatsWithDates);
+      } catch {}
+    }
+  }, []);
+
+  // Save deleted chats to localStorage
+  useEffect(() => {
+    localStorage.setItem('deletedChats', JSON.stringify(deletedChats));
+  }, [deletedChats]);
 
   // Modify the chat history sync effect to be more precise
   useEffect(() => {
@@ -466,14 +494,12 @@ export default function ChatInterface() {
     // Store the messages before deleting the chat
     const chatToDelete = chatHistory.find(chat => chat.id === chatId);
     if (chatToDelete) {
+      // Save full chat for potential full restore
+      setDeletedChats(prev => [chatToDelete, ...prev]);
+      // Save only user messages for message-level restore
       const messagesToStore = chatToDelete.messages
         .filter(msg => msg.role === 'user')
-        .map(msg => ({
-          id: msg.id,
-          content: msg.content,
-          timestamp: msg.timestamp,
-          chatId: chatId
-        }));
+        .map(msg => ({ id: msg.id, content: msg.content, timestamp: msg.timestamp, chatId }));
       setDeletedMessages(prev => [...messagesToStore, ...prev]);
     }
     
@@ -493,21 +519,49 @@ export default function ChatInterface() {
     }
   };
 
+  // Restore a deleted message into its original conversation and navigate there
   const handleRestoreMessage = (messageId: string) => {
-    const messageToRestore = deletedMessages.find(msg => msg.id === messageId);
-    if (messageToRestore) {
-      // Add the message to the current chat
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: messageToRestore.content,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, newMessage]);
-      
-      // Remove from deleted messages
-      setDeletedMessages(prev => prev.filter(msg => msg.id !== messageId));
+    // Find the deleted message record
+    const msg = deletedMessages.find(m => m.id === messageId);
+    if (!msg) return;
+    // If the entire chat was deleted, restore full chat
+    const deletedChat = deletedChats.find(chat => chat.id === msg.chatId);
+    if (deletedChat) {
+      // Restore full conversation into history
+      const newFullHistory = [deletedChat, ...chatHistory.filter(c => c.id !== deletedChat.id)];
+      setChatHistory(newFullHistory);
+      // Clean up deleted chats and messages
+      setDeletedChats(prev => prev.filter(c => c.id !== deletedChat.id));
+      setDeletedMessages(prev => prev.filter(m => m.chatId !== deletedChat.id));
+      // Navigate to restored chat
+      setCurrentChatId(deletedChat.id);
+      setActiveSection('chat');
+      setMessages(deletedChat.messages);
+      return;
     }
+    // Otherwise, restore an individual message into its existing conversation
+    const restoredMsg: Message = { id: msg.id, role: 'user', content: msg.content, timestamp: new Date(msg.timestamp) };
+    // Update history with restored message
+    const newHistory = chatHistory.map(chat =>
+      chat.id === msg.chatId
+        ? { ...chat, messages: [...chat.messages, restoredMsg], timestamp: new Date() }
+        : chat
+    );
+    setChatHistory(newHistory);
+    // Navigate to the restored conversation
+    const updatedChat = newHistory.find(chat => chat.id === msg.chatId);
+    if (updatedChat) {
+      setCurrentChatId(updatedChat.id);
+      setActiveSection('chat');
+      setMessages(updatedChat.messages);
+    }
+    // Remove only this message from deletedMessages
+    setDeletedMessages(prev => prev.filter(m => m.id !== messageId));
+  };
+
+  // Permanently delete a message (remove from deletedMessages)
+  const handlePermanentDelete = (messageId: string) => {
+    setDeletedMessages(prev => prev.filter(m => m.id !== messageId));
   };
 
   const startRenaming = (chatId: string, currentTitle: string, event: React.MouseEvent) => {
@@ -636,6 +690,7 @@ export default function ChatInterface() {
             <Settings
               deletedMessages={deletedMessages}
               onRestoreMessage={handleRestoreMessage}
+              onPermanentDelete={handlePermanentDelete}
               soundEnabled={userSettings.soundEnabled}
               desktopEnabled={userSettings.desktopEnabled}
               saveHistory={userSettings.saveHistory}

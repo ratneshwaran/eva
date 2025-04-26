@@ -16,6 +16,7 @@ interface DeletedMessage {
 interface SettingsProps {
   deletedMessages: DeletedMessage[];
   onRestoreMessage?: (messageId: string) => void;
+  onPermanentDelete?: (messageId: string) => void;
   soundEnabled: boolean;
   desktopEnabled: boolean;
   saveHistory: boolean;
@@ -33,6 +34,7 @@ interface SettingsProps {
 export default function Settings({ 
   deletedMessages, 
   onRestoreMessage,
+  onPermanentDelete,
   soundEnabled,
   desktopEnabled,
   saveHistory,
@@ -178,14 +180,24 @@ export default function Settings({
                           {new Date(message.timestamp).toLocaleString()}
                         </p>
                       </div>
-                      {onRestoreMessage && (
-                        <button
-                          onClick={() => onRestoreMessage(message.id)}
-                          className={`ml-4 text-sm text-${currentTheme}-600 hover:text-${currentTheme}-700`}
-                        >
-                          Restore
-                        </button>
-                      )}
+                      <div className="flex space-x-4">
+                        {onRestoreMessage && (
+                          <button
+                            onClick={() => onRestoreMessage(message.id)}
+                            className={`text-sm text-${currentTheme}-600 hover:text-${currentTheme}-700`}
+                          >
+                            Restore
+                          </button>
+                        )}
+                        {onPermanentDelete && (
+                          <button
+                            onClick={() => onPermanentDelete(message.id)}
+                            className="text-sm text-red-600 hover:text-red-700"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
