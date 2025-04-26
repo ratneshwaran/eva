@@ -1,0 +1,3302 @@
+// Description: types/chat.ts
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isTyping?: boolean;
+}
+
+export interface ChatState {
+  messages: Message[];
+  isLoading: boolean;
+  error: string | null;
+} // Description: app/types/chat.ts
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isTyping?: boolean;
+} // Description: app/contexts/ThemeContext.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+export type Theme = 'blue' | 'purple' | 'green';
+
+interface ThemeContextType {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+}
+
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'blue',
+  setTheme: () => {}
+});
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>('blue');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('theme') as Theme;
+    if (stored === 'blue' || stored === 'purple' || stored === 'green') {
+      setThemeState(stored);
+    }
+  }, []);
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
+  useEffect(() => {
+    document.documentElement.classList.remove('theme-blue', 'theme-purple', 'theme-green');
+    document.documentElement.classList.add(`theme-${theme}`);
+  }, [theme]);
+
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  return useContext(ThemeContext);
+}
+// Description: app/contexts/AuthContext.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+interface AuthContextType {
+  user: { email: string } | null;
+  signOut: () => void;
+}
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  signOut: () => {},
+});
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<{ email: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {}
+    }
+  }, []);
+
+  const signOut = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+} // Description: app/utils/sounds.ts
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+class SoundManager {
+  private static audioContext: AudioContext | null = null;
+
+  private static getAudioContext() {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return this.audioContext;
+  }
+
+  private static async createSound(frequency: number, duration: number, volume: number) {
+    const ctx = this.getAudioContext();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+    gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + duration);
+
+    return new Promise(resolve => setTimeout(resolve, duration * 1000));
+  }
+
+  static async playSound(soundType: 'messageSent' | 'messageReceived' | 'notification', volume = 0.5) {
+    try {
+      switch (soundType) {
+        case 'messageSent':
+          // Higher pitch, shorter duration
+          await this.createSound(880, 0.1, volume * 0.3); // A5 note
+          break;
+        case 'messageReceived':
+          // Lower pitch, slightly longer duration
+          await this.createSound(440, 0.15, volume * 0.4); // A4 note
+          break;
+        case 'notification':
+          // Two-tone alert
+          await this.createSound(587.33, 0.1, volume * 0.4); // D5 note
+          await this.createSound(880, 0.1, volume * 0.4); // A5 note
+          break;
+      }
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  }
+
+  // This method is kept for compatibility but now just initializes the audio context
+  static preloadSounds() {
+    this.getAudioContext();
+  }
+}
+
+export default SoundManager; // Description: app/components/Settings/Settings.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
+
+interface DeletedMessage {
+  id: string;
+  content: string;
+  timestamp: Date;
+  chatId: string;
+}
+
+interface SettingsProps {
+  deletedMessages: DeletedMessage[];
+  onRestoreMessage?: (messageId: string) => void;
+  soundEnabled: boolean;
+  desktopEnabled: boolean;
+  saveHistory: boolean;
+  allowDataCollection: boolean;
+  theme: 'blue' | 'purple' | 'green';
+  onSettingsChange: (settings: {
+    soundEnabled: boolean;
+    desktopEnabled: boolean;
+    saveHistory: boolean;
+    allowDataCollection: boolean;
+    theme: 'blue' | 'purple' | 'green';
+  }) => void;
+}
+
+export default function Settings({ 
+  deletedMessages, 
+  onRestoreMessage,
+  soundEnabled,
+  desktopEnabled,
+  saveHistory,
+  allowDataCollection,
+  theme,
+  onSettingsChange
+}: SettingsProps) {
+  const { theme: currentTheme } = useTheme();
+  const { user, signOut } = useAuth();
+  const [activeTab, setActiveTab] = useState<'general' | 'history'>('general');
+
+  const handleSettingChange = (setting: keyof Omit<SettingsProps, 'deletedMessages' | 'onRestoreMessage' | 'theme' | 'onSettingsChange'>, value: boolean) => {
+    onSettingsChange({ soundEnabled, desktopEnabled, saveHistory, allowDataCollection, theme: currentTheme });
+  };
+
+  useEffect(() => {
+    if (desktopEnabled) {
+      Notification.requestPermission().then((permission) => {
+        if (permission !== 'granted') {
+          handleSettingChange('desktopEnabled', false);
+        }
+      });
+    }
+  }, [desktopEnabled]);
+
+  return (
+    <div className="h-full flex flex-col p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex space-x-4 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('general')}
+          className={`pb-2 px-1 ${
+            activeTab === 'general'
+              ? `border-b-2 border-${currentTheme}-600 text-${currentTheme}-600`
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          General
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`pb-2 px-1 ${
+            activeTab === 'history'
+              ? `border-b-2 border-${currentTheme}-600 text-${currentTheme}-600`
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Message History
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'general' ? (
+          <div className="space-y-6">
+            {/* Notification Settings */}
+            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Notifications</h3>
+              <div className="space-y-4">
+                <label className="flex items-center justify-between">
+                  <span className="text-gray-700">Sound notifications</span>
+                  <input
+                    type="checkbox"
+                    checked={soundEnabled}
+                    onChange={(e) => handleSettingChange('soundEnabled', e.target.checked)}
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
+                  />
+                </label>
+                <label className="flex items-center justify-between">
+                  <span className="text-gray-700">Desktop notifications</span>
+                  <input
+                    type="checkbox"
+                    checked={desktopEnabled}
+                    onChange={(e) => handleSettingChange('desktopEnabled', e.target.checked)}
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Privacy Settings */}
+            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Privacy</h3>
+              <div className="space-y-4">
+                <label className="flex items-center justify-between">
+                  <span className="text-gray-700">Save chat history</span>
+                  <input
+                    type="checkbox"
+                    checked={saveHistory}
+                    onChange={(e) => handleSettingChange('saveHistory', e.target.checked)}
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
+                  />
+                </label>
+                <label className="flex items-center justify-between">
+                  <span className="text-gray-700">Allow data collection for improvement</span>
+                  <input
+                    type="checkbox"
+                    checked={allowDataCollection}
+                    onChange={(e) => handleSettingChange('allowDataCollection', e.target.checked)}
+                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Account */}
+            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Account</h3>
+              {user && (
+                <button
+                  onClick={() => signOut()}
+                  className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  Logout ({user.email})
+                </button>
+              )}
+            </div>
+
+            {/* Theme Selection */}
+            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Theme</h3>
+              <div className="space-y-2">
+                {(['blue','purple','green'] as const).map(color => (
+                  <label key={color} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="theme"
+                      value={color}
+                      checked={theme === color}
+                      onChange={() => onSettingsChange({ soundEnabled, desktopEnabled, saveHistory, allowDataCollection, theme: color })}
+                      className={`form-radio h-4 w-4 text-${color}-600`}
+                    />
+                    <span className="capitalize text-gray-700">{color}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Recently Deleted Messages</h3>
+              {deletedMessages.length === 0 ? (
+                <p className="text-center py-4 text-gray-500">No deleted messages</p>
+              ) : (
+                <div className="space-y-4">
+                  {deletedMessages.map((message) => (
+                    <div key={message.id} className="flex items-start justify-between border-b pb-4 border-gray-200">
+                      <div className="flex-1">
+                        <p className="text-gray-900 mb-1">{message.content}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(message.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                      {onRestoreMessage && (
+                        <button
+                          onClick={() => onRestoreMessage(message.id)}
+                          className={`ml-4 text-sm text-${currentTheme}-600 hover:text-${currentTheme}-700`}
+                        >
+                          Restore
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+} // Description: app/components/Chat/MessageInput.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { useState } from 'react';
+import { IoSend } from 'react-icons/io5';
+import { useTheme } from '../../contexts/ThemeContext';
+
+interface MessageInputProps {
+  onSendMessage: (message: string) => void;
+  isLoading?: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
+}
+
+export function MessageInput({ onSendMessage, isLoading = false, value, onChange }: MessageInputProps) {
+  const [localMessage, setLocalMessage] = useState('');
+  const { theme } = useTheme();
+  const buttonColorMap = {
+    blue: { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' },
+    purple: { bg: 'bg-purple-500', hover: 'hover:bg-purple-600' },
+    green: { bg: 'bg-green-500', hover: 'hover:bg-green-600' },
+  } as const;
+  const { bg, hover } = buttonColorMap[theme];
+
+  const handleSend = () => {
+    const messageToSend = value || localMessage;
+    if (messageToSend.trim() && !isLoading) {
+      onSendMessage(messageToSend);
+      if (!onChange) {
+        setLocalMessage('');
+      }
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    if (onChange) {
+      onChange(newValue);
+    } else {
+      setLocalMessage(newValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <textarea
+        value={value || localMessage}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder="Type your message..."
+        rows={1}
+        disabled={isLoading}
+        className="flex-1 px-6 py-3 text-base text-gray-700 bg-white rounded-full border border-gray-200 focus:outline-none focus:border-blue-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+      />
+      <button
+        onClick={handleSend}
+        disabled={!(value || localMessage).trim() || isLoading}
+        className={`w-12 h-12 ${bg} text-white rounded-full ${hover} transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 shadow-sm`}
+        aria-label="Send message"
+      >
+        <IoSend size={20} />
+      </button>
+    </div>
+  );
+}
+
+export default MessageInput;// Description: app/components/Chat/ChatInterface.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import React from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { Message } from '@/types/chat';
+import MessageList from './MessageList';
+import { MessageInput } from './MessageInput';
+import { IoMenu, IoClose } from 'react-icons/io5';
+import { BsChatDots } from 'react-icons/bs';
+import { FaLungs, FaShieldAlt, FaInfoCircle, FaHeart, FaDog } from 'react-icons/fa';
+import { GiMeditation } from 'react-icons/gi';
+import { MdOutlineSos } from 'react-icons/md';
+import { IoSettingsSharp } from 'react-icons/io5';
+import BreathingExercises from '../Breathing/BreathingExercises';
+import CrisisResources from '../Crisis/CrisisResources';
+import EthicsPrinciples from '../Ethics/EthicsPrinciples';
+import Settings from '../Settings/Settings';
+import Avatar from './Avatar'; // static avatar
+import SoundManager from '@/app/utils/sounds';
+import DynamicAvatar from './DynamicAvatar'; // floating avatar
+import { useTheme } from '../../contexts/ThemeContext';
+
+const WELCOME_MESSAGE = `Hi! I'm Eva, and I'm here to listen and support you.
+
+I can help by:
+• Creating a safe space to talk
+• Listening without judgment
+• Sharing helpful coping tips
+• Guiding you through breathing exercises
+
+Just remember - I'm not a therapist, so for urgent support, 
+please check our Crisis Help section.
+
+How are you feeling today? I'm here to listen.`;
+
+interface QuickAction {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+const quickActions: QuickAction[] = [
+  {
+    id: 'breathing',
+    title: 'Breathing Exercises',
+    description: 'Guided exercises to help you relax and find calm',
+    icon: <FaLungs className="w-6 h-6" />,
+  },
+  {
+    id: 'crisis',
+    title: 'Crisis Resources',
+    description: 'Immediate help and support when you need it most',
+    icon: <MdOutlineSos className="w-6 h-6" />,
+  },
+  {
+    id: 'meditation',
+    title: 'Meditation Guide',
+    description: 'Simple meditation techniques for mental wellness',
+    icon: <GiMeditation className="w-6 h-6" />,
+  },
+];
+
+function FirstTimeInfo({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Important Information About Eva</h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <IoClose size={24} />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-bold text-lg text-blue-700 mb-2">What Eva Can Do:</h3>
+              <ul className="list-disc list-inside space-y-1 text-gray-700">
+                <li>Help explore thoughts and feelings</li>
+                <li>Suggest coping strategies</li>
+                <li>Provide mental health resources</li>
+                <li>Guide breathing exercises</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-lg text-red-700 mb-2">Important Limitations:</h3>
+              <ul className="list-disc list-inside space-y-1 text-gray-700">
+                <li>Not a replacement for professional therapy</li>
+                <li>Cannot diagnose conditions or prescribe treatments</li>
+                <li>Responses based on training, not real-time medical knowledge</li>
+                <li>Not for crisis situations - please contact emergency services</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              I understand
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ChatInterface() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 'welcome',
+      role: 'assistant',
+      content: WELCOME_MESSAGE,
+      timestamp: new Date()
+    }
+  ]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingMessage, setTypingMessage] = useState('');
+  const [typingIndex, setTypingIndex] = useState(0);
+  const typingSpeed = 30; // milliseconds per character
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<'chat' | 'breathing' | 'crisis' | 'ethics' | 'settings'>('chat');
+  const [showFirstTimeInfo, setShowFirstTimeInfo] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentChatId, setCurrentChatId] = useState<string>('default');
+  const [chatHistory, setChatHistory] = useState<{
+    id: string;
+    preview: string;
+    messages: Message[];
+    timestamp: Date;
+    title: string;
+  }[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [deletedMessages, setDeletedMessages] = useState<{
+    id: string;
+    content: string;
+    timestamp: Date;
+    chatId: string;
+  }[]>([]);
+  const [userSettings, setUserSettings] = useState({
+    soundEnabled: false,
+    desktopEnabled: false,
+    saveHistory: true,
+    allowDataCollection: true,
+    theme: 'blue' as 'blue' | 'purple' | 'green',
+  });
+  const { theme, setTheme } = useTheme();
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const userTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Map each theme to its static Tailwind classes (ensures colors are included in the build)
+  const themeStyles = {
+    blue: {
+      primary600: 'bg-blue-600',
+      primary700: 'bg-blue-700',
+      primary100: 'bg-blue-100',
+      textPrimary600: 'text-blue-600',
+      borderPrimary600: 'border-blue-600',
+    },
+    purple: {
+      primary600: 'bg-purple-600',
+      primary700: 'bg-purple-700',
+      primary100: 'bg-purple-100',
+      textPrimary600: 'text-purple-600',
+      borderPrimary600: 'border-purple-600',
+    },
+    green: {
+      primary600: 'bg-green-600',
+      primary700: 'bg-green-700',
+      primary100: 'bg-green-100',
+      textPrimary600: 'text-green-600',
+      borderPrimary600: 'border-green-600',
+    },
+  } as const;
+  const { primary600, primary700, primary100, textPrimary600, borderPrimary600 } = themeStyles[theme];
+
+  // Load chat history from localStorage on component mount
+  useEffect(() => {
+    // Pull saved chat history, fall back to default welcome chat if none exists
+    const saved = localStorage.getItem('chatHistory');
+    let historyWithDates: typeof chatHistory = [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        historyWithDates = parsed.map((chat: any) => ({
+        ...chat,
+        timestamp: new Date(chat.timestamp),
+          messages: chat.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) }))
+        }));
+      } catch {
+        historyWithDates = [];
+      }
+    }
+    // If no previous chats, seed with welcome message
+    if (historyWithDates.length === 0) {
+      const defaultChat = {
+        id: 'default',
+        preview: WELCOME_MESSAGE.slice(0, 30) + (WELCOME_MESSAGE.length > 30 ? '...' : ''),
+        title: 'Welcome',
+        messages: [
+          { id: 'welcome', role: 'assistant' as 'assistant', content: WELCOME_MESSAGE, timestamp: new Date() }
+        ] as Message[],
+        timestamp: new Date()
+      };
+      historyWithDates = [defaultChat];
+    }
+    setChatHistory(historyWithDates);
+    setCurrentChatId(historyWithDates[0].id);
+    // Initialize messages from history
+    setMessages(historyWithDates[0].messages);
+  }, []);
+
+  // Save chat history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+  }, [chatHistory]);
+
+  // Load deleted messages from localStorage
+  useEffect(() => {
+    const savedDeletedMessages = localStorage.getItem('deletedMessages');
+    if (savedDeletedMessages) {
+      const parsedMessages = JSON.parse(savedDeletedMessages);
+      // Convert string timestamps back to Date objects
+      const messagesWithDates = parsedMessages.map((msg: any) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      }));
+      setDeletedMessages(messagesWithDates);
+    }
+  }, []);
+
+  // Save deleted messages to localStorage
+  useEffect(() => {
+    localStorage.setItem('deletedMessages', JSON.stringify(deletedMessages));
+  }, [deletedMessages]);
+
+  // Modify the chat history sync effect to be more precise
+  useEffect(() => {
+    if (activeSection === 'chat' && !isLoading && !isTyping) {
+      setChatHistory(prev => {
+        const idx = prev.findIndex(c => c.id === currentChatId);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          messages: messages,
+          timestamp: new Date()
+        };
+        return updated;
+      });
+    }
+  }, [messages, currentChatId, activeSection, isLoading, isTyping]);
+
+  // Load user settings from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('userSettings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setUserSettings(parsed);
+      } catch {}
+    }
+  }, []);
+
+  // Initialize audio context on first user interaction
+  const initializeAudio = () => {
+    if (userSettings.soundEnabled) {
+      SoundManager.preloadSounds();
+    }
+  };
+
+  // Add click handler to document to initialize audio
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      initializeAudio();
+      document.removeEventListener('click', handleFirstInteraction);
+    };
+    document.addEventListener('click', handleFirstInteraction);
+    return () => document.removeEventListener('click', handleFirstInteraction);
+  }, []);
+
+  // Function to simulate typing effect
+  const simulateTyping = async (message: string) => {
+    setIsTyping(true);
+    setTypingMessage('');
+    setTypingIndex(0);
+
+    return new Promise<void>((resolve) => {
+      const typeNextChar = () => {
+        setTypingMessage(prev => prev + message[typingIndex]);
+        setTypingIndex(prevIndex => {
+          if (prevIndex + 1 === message.length) {
+            setIsTyping(false);
+            resolve();
+            return prevIndex;
+          }
+          return prevIndex + 1;
+        });
+      };
+
+      const typingInterval = setInterval(() => {
+        if (typingIndex < message.length) {
+          typeNextChar();
+        } else {
+          clearInterval(typingInterval);
+        }
+      }, typingSpeed);
+
+      return () => clearInterval(typingInterval);
+    });
+  };
+
+  const startNewChat = () => {
+    const newChatId = Date.now().toString();
+    setCurrentChatId(newChatId);
+    setMessages([{
+      id: 'welcome',
+      role: 'assistant',
+      content: WELCOME_MESSAGE,
+      timestamp: new Date()
+    }]);
+    
+    // Add new chat to history
+    setChatHistory(prev => [{
+      id: newChatId,
+      preview: 'New conversation',
+      title: 'New conversation',
+      messages: [{
+        id: 'welcome',
+        role: 'assistant',
+        content: WELCOME_MESSAGE,
+        timestamp: new Date()
+      }],
+      timestamp: new Date()
+    }, ...prev]);
+  };
+
+  const loadChat = (chatId: string) => {
+    const chat = chatHistory.find(c => c.id === chatId);
+    if (chat) {
+      setCurrentChatId(chatId);
+      // Ensure we're not in the middle of typing when loading a new chat
+      setIsTyping(false);
+      setIsLoading(false);
+      setMessages(chat.messages.map(msg => ({ ...msg, isTyping: false })));
+    }
+  };
+
+  // Modify handleSendMessage to handle message updates more carefully
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim() || isLoading) return;
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    setInputMessage('');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, newMessage],
+          allowDataCollection: userSettings.allowDataCollection
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+      if (!data.message) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Create the assistant message first
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isTyping: true
+      };
+      
+      // Add the empty assistant message
+      setMessages(prev => [...prev, assistantMessage]);
+
+      // Type out the message
+      let typedContent = '';
+      for (const char of data.message) {
+        typedContent += char;
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === assistantMessage.id
+              ? { ...msg, content: typedContent }
+              : msg
+          )
+        );
+        await new Promise(resolve => setTimeout(resolve, typingSpeed));
+      }
+
+      // Mark typing as complete
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === assistantMessage.id
+            ? { ...msg, isTyping: false }
+            : msg
+        )
+      );
+
+      // Play sound if enabled
+      if (userSettings.soundEnabled) {
+        await SoundManager.playSound('messageReceived', 0.5);
+      }
+
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to send message. Please try again.');
+      // Remove the failed message
+      setMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleMessageInput = (message: string) => {
+    handleSendMessage(message);
+  };
+
+  const deleteChat = (chatId: string, event: React.MouseEvent) => {
+    event?.stopPropagation();
+    // Store the messages before deleting the chat
+    const chatToDelete = chatHistory.find(chat => chat.id === chatId);
+    if (chatToDelete) {
+      const messagesToStore = chatToDelete.messages
+        .filter(msg => msg.role === 'user')
+        .map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          timestamp: msg.timestamp,
+          chatId: chatId
+        }));
+      setDeletedMessages(prev => [...messagesToStore, ...prev]);
+    }
+    
+    setChatHistory(prev => prev.filter(chat => chat.id !== chatId));
+    
+    if (chatId === currentChatId) {
+      if (chatHistory.length <= 1) {
+        startNewChat();
+      } else {
+        const remainingChats = chatHistory.filter(chat => chat.id !== chatId);
+        if (remainingChats.length > 0) {
+          const mostRecentChat = remainingChats[0];
+          setCurrentChatId(mostRecentChat.id);
+          setMessages(mostRecentChat.messages);
+        }
+      }
+    }
+  };
+
+  const handleRestoreMessage = (messageId: string) => {
+    const messageToRestore = deletedMessages.find(msg => msg.id === messageId);
+    if (messageToRestore) {
+      // Add the message to the current chat
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: messageToRestore.content,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, newMessage]);
+      
+      // Remove from deleted messages
+      setDeletedMessages(prev => prev.filter(msg => msg.id !== messageId));
+    }
+  };
+
+  const startRenaming = (chatId: string, currentTitle: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setEditingChatId(chatId);
+    setEditTitle(currentTitle);
+  };
+
+  const handleRename = (chatId: string, event: React.FormEvent) => {
+    event.preventDefault();
+    if (editTitle.trim()) {
+      setChatHistory(prev => prev.map(chat => 
+        chat.id === chatId 
+          ? { ...chat, title: editTitle.trim() }
+          : chat
+      ));
+      setEditingChatId(null);
+      setEditTitle('');
+    }
+  };
+
+  const deleteAllChats = () => {
+    if (window.confirm('Are you sure you want to delete all conversations? This cannot be undone.')) {
+      setChatHistory([]);
+      startNewChat();
+    }
+  };
+
+  // Clear any typing flags on initial mount so old messages stay static
+  useEffect(() => {
+    setMessages(prev => prev.map(msg => ({ ...msg, isTyping: false })));
+  }, []);
+
+  const handleSectionChange = (section: 'chat' | 'breathing' | 'crisis' | 'ethics' | 'settings') => {
+    if (section === 'chat') {
+      // When returning to chat, load the current chat's messages
+      const currentChat = chatHistory.find(chat => chat.id === currentChatId);
+      if (currentChat) {
+        setMessages(currentChat.messages);
+      }
+    }
+    setActiveSection(section);
+  };
+
+  // Add this function to handle user typing detection
+  const handleUserTyping = (value: string) => {
+    setInputMessage(value);
+    
+    // Update user typing state
+    setIsUserTyping(true);
+    
+    // Clear existing timeout
+    if (userTypingTimeoutRef.current) {
+      clearTimeout(userTypingTimeoutRef.current);
+    }
+    
+    // Set new timeout to clear typing state
+    userTypingTimeoutRef.current = setTimeout(() => {
+      setIsUserTyping(false);
+    }, 1000);
+  };
+
+  // Clean up typing detection timeout
+  useEffect(() => {
+    return () => {
+      if (userTypingTimeoutRef.current) {
+        clearTimeout(userTypingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Determine avatar state
+  const getAvatarState = () => {
+    if (isUserTyping) return 'userTyping';
+    if (isTyping || isLoading) return 'aiTyping';
+    if (messages.length > 1) return 'waiting';
+    return 'idle';
+  };
+
+  // When settings change (e.g. in Settings page)
+  const handleSettingsChange = (newSettings: typeof userSettings) => {
+    // Update global theme and local settings
+    setTheme(newSettings.theme);
+    setUserSettings(newSettings);
+    localStorage.setItem('userSettings', JSON.stringify(newSettings));
+  };
+
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'chat':
+        return (
+          <div className="relative flex-1 flex flex-col h-full">
+            {/* Floating Avatar Top Right in Chat view */}
+            <div className="absolute top-4 right-4 z-50">
+              <DynamicAvatar state={getAvatarState()} theme={theme} />
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 pb-10">
+              <MessageList 
+                messages={messages} 
+                isTyping={isLoading}
+                isSidebarOpen={isSidebarOpen}
+              />
+            </div>
+            <div className="px-6 py-4">
+              <MessageInput 
+                onSendMessage={handleMessageInput}
+                isLoading={isLoading}
+                value={inputMessage}
+                onChange={handleUserTyping}
+              />
+              {error && (
+                <p className="mt-2 text-red-500 text-sm text-center">{error}</p>
+              )}
+            </div>
+          </div>
+        );
+      case 'breathing':
+        return <div className="h-full overflow-y-auto"><BreathingExercises /></div>;
+      case 'crisis':
+        return <div className="h-full overflow-y-auto"><CrisisResources /></div>;
+      case 'ethics':
+        return <div className="h-full overflow-y-auto"><EthicsPrinciples /></div>;
+      case 'settings':
+        return (
+          <div className="h-full overflow-y-auto">
+            <Settings
+              deletedMessages={deletedMessages}
+              onRestoreMessage={handleRestoreMessage}
+              soundEnabled={userSettings.soundEnabled}
+              desktopEnabled={userSettings.desktopEnabled}
+              saveHistory={userSettings.saveHistory}
+              allowDataCollection={userSettings.allowDataCollection}
+              theme={theme}
+              onSettingsChange={handleSettingsChange}
+            />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-white">
+      {/* Mobile menu toggle */}
+      <div className={`md:hidden absolute top-2 ${isSidebarOpen ? 'left-56' : 'left-2'} z-40`}>
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
+          className="p-2 rounded bg-gray-100 shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {isSidebarOpen ? (
+            <IoClose className="w-6 h-6 text-gray-700" />
+          ) : (
+            <IoMenu className="w-6 h-6 text-gray-700" />
+          )}
+        </button>
+      </div>
+
+      {/* Detached, rounded sidebar */}
+      <aside className={`fixed inset-y-12 left-4 w-56 bg-white rounded-lg shadow-lg border border-gray-200 transform transition-transform duration-300 ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } md:sticky md:top-4 md:bottom-auto md:translate-x-0 z-30 overflow-hidden`}>
+        <div className="p-4 h-full flex flex-col">
+          {/* Logo and Version */}
+          <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-2">
+              <span className={`text-2xl font-bold ${textPrimary600}`}>Eva</span>
+              <a
+                href="https://40seconds.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                by 40seconds.org
+              </a>
+            </div>
+          </div>
+
+          {/* New Chat Button */}
+          <button
+            onClick={startNewChat}
+            className={`w-full mb-4 flex items-center justify-center p-2 rounded ${primary600} text-white hover:${primary700}`}
+          >
+            <BsChatDots className="w-6 h-6" />
+          </button>
+
+          {/* Search */}
+          <div className="relative mb-4">
+            <input
+              type="text"
+              placeholder="Search conversations"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 bg-white rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+            />
+          </div>
+
+          {/* Chat History Container */}
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {/* Recent Chats */}
+            <div className="flex-1 overflow-y-auto mb-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2 px-2">Recent Conversations</h3>
+              {chatHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 text-gray-500">
+                  <p className="text-lg mb-2">It's quiet in here...</p>
+                  <p className="text-sm">Start a new conversation to begin chatting with Eva</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {chatHistory
+                    .filter(chat => 
+                      searchQuery ? 
+                        chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        chat.preview.toLowerCase().includes(searchQuery.toLowerCase()) : 
+                        true
+                    )
+                    .map(chat => (
+                      <div key={chat.id} className="flex items-center px-2">
+                        <div className="flex-1 flex items-center min-w-0">
+                          {editingChatId === chat.id ? (
+                            <form 
+                              onSubmit={(e) => handleRename(chat.id, e)}
+                              className="flex-1 flex items-center min-w-0 pr-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900"
+                                autoFocus
+                                onBlur={() => {
+                                  if (editTitle.trim()) {
+                                    handleRename(chat.id, new Event('submit') as any);
+                                  } else {
+                                    setEditingChatId(null);
+                                  }
+                                }}
+                              />
+                            </form>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                loadChat(chat.id);
+                                setActiveSection('chat');
+                              }}
+                              className={`flex-1 p-2 text-left rounded-lg hover:bg-gray-100 transition-colors min-w-0 ${
+                                currentChatId === chat.id && activeSection === 'chat' ? 'bg-gray-100' : ''
+                              }`}
+                            >
+                              <div className="font-medium text-gray-900 truncate text-sm">
+                                {chat.title}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {chat.timestamp.toLocaleString()}
+                              </div>
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => startRenaming(chat.id, chat.title, e)}
+                            className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                            title="Rename conversation"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChat(chat.id, e);
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-500 transition-colors ml-1"
+                          title="Delete conversation"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Features Navigation - Fixed at bottom */}
+            <div className="flex-shrink-0 border-t pt-6 mb-4">
+              <div className="text-sm font-semibold text-gray-600 mb-2 px-2">Support Tools</div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleSectionChange('breathing')}
+                  className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
+                    activeSection === 'breathing'
+                      ? `${primary100} ${textPrimary600}`
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <FaLungs className="w-6 h-6 mr-3" />
+                  <span className="font-medium">Breathing</span>
+                </button>
+                
+                <button
+                  onClick={() => handleSectionChange('crisis')}
+                  className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
+                    activeSection === 'crisis'
+                      ? `${primary100} ${textPrimary600}`
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <MdOutlineSos className="w-6 h-6 mr-3" />
+                  <span className="font-medium">Crisis Help</span>
+                </button>
+                
+                <button
+                  onClick={() => handleSectionChange('ethics')}
+                  className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
+                    activeSection === 'ethics'
+                      ? `${primary100} ${textPrimary600}`
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <FaShieldAlt className="w-6 h-6 mr-3" />
+                  <span className="font-medium">Ethics</span>
+                </button>
+                
+                <button
+                  onClick={() => handleSectionChange('settings')}
+                  className={`w-full flex items-center p-3.5 rounded-lg transition-colors ${
+                    activeSection === 'settings'
+                      ? `${primary100} ${textPrimary600}`
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <IoSettingsSharp className="w-6 h-6 mr-3" />
+                  <span className="font-medium">Settings</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="relative flex-1 flex flex-col h-full min-w-0 bg-white">
+        {renderContent()}
+      </main>
+    </div>
+  );
+}// Description: app/components/Chat/MessageList.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import React, { useEffect, useRef } from 'react';
+import { Message } from '@/types/chat';
+import Avatar from './Avatar';
+import AnimatedMessage from './AnimatedMessage';
+
+interface MessageListProps {
+  messages: Message[];
+  isTyping: boolean;
+  isSidebarOpen: boolean;
+}
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning!';
+  if (hour >= 12 && hour < 17) return 'Good afternoon!';
+  if (hour >= 17 && hour < 22) return 'Good evening!';
+  return 'Hello!';
+};
+
+export default function MessageList({ messages, isTyping, isSidebarOpen }: MessageListProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  return (
+    <div className="w-full flex flex-col pb-24">
+      <div className="space-y-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex items-start gap-3 ${
+              message.role === 'user' ? 'flex-row-reverse' : ''
+            }`}
+          >
+            <div className="flex-shrink-0">
+              <Avatar role={message.role} />
+            </div>
+            <div
+              className={`px-4 py-3 rounded-2xl ${
+                message.role === 'user'
+                  ? 'bg-blue-600 text-white ml-auto max-w-[80%]'
+                  : 'bg-white text-gray-900 shadow-sm mr-auto max-w-[80%]'
+              }`}
+            >
+              {message.isTyping ? (
+                <div className="whitespace-pre-wrap text-[16px] leading-relaxed">
+                  {message.content}
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap text-[16px] leading-relaxed">
+                  {message.content}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div ref={messagesEndRef} />
+    </div>
+  );
+}
+// Description: app/components/Chat/Avatar.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+import React from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
+import { FaUser } from 'react-icons/fa';
+
+interface AvatarProps {
+  role: 'user' | 'assistant';
+}
+
+export default function Avatar({ role }: AvatarProps) {
+  const { theme } = useTheme();
+  const bgClass = `bg-${theme}-600`;
+  if (role === 'user') {
+    return (
+      <div className={`w-10 h-10 rounded-full ${bgClass} flex items-center justify-center`}>
+        <FaUser className="w-5 h-5 text-white" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`w-10 h-10 rounded-full ${bgClass} flex items-center justify-center`}>
+      <span className="text-white text-lg font-semibold">E</span>
+    </div>
+  );
+} // Description: app/components/Chat/PromptCard.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+import { FC } from 'react';
+
+interface PromptCardProps {
+  title: string;
+  description: string;
+}
+
+const PromptCard: FC<PromptCardProps> = ({ title, description }) => {
+  return (
+    <button 
+      className="w-full max-w-[250px] text-left p-5 bg-white rounded-xl border hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+      onClick={() => {
+        // Handle prompt selection
+      }}
+    >
+      <h3 className="font-medium text-gray-900 mb-2">{title}</h3>
+      <p className="text-sm text-gray-600 leading-relaxed">{description}</p>
+    </button>
+  );
+};
+
+export default PromptCard; // Description: app/components/Chat/Message.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+import { motion } from 'framer-motion';
+
+interface MessageProps {
+  text: string;
+  isUser: boolean;
+}
+
+export function Message({ text, isUser }: MessageProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex flex-col max-w-[85%] ${isUser ? 'ml-auto' : ''}`}
+    >
+      <div
+        className={`p-5 rounded-lg shadow-sm ${
+          isUser
+            ? 'bg-blue-600 text-white'
+            : 'bg-white border border-gray-200'
+        }`}
+      >
+        <div className="text-lg">
+          {text}
+        </div>
+      </div>
+    </motion.div>
+  );
+} // Description: app/components/Chat/index.ts
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+export { default as MessageList } from './MessageList';
+export { default as MessageInput } from './MessageInput';
+export { default as ChatInterface } from './ChatInterface'; // Description: app/components/Chat/DynamicAvatar.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import React from 'react';
+import { motion } from 'framer-motion';
+
+interface DynamicAvatarProps {
+  state: 'idle' | 'userTyping' | 'aiTyping' | 'waiting';
+  theme?: 'blue' | 'purple' | 'green';
+}
+
+export default function DynamicAvatar({ state }: DynamicAvatarProps) {
+  const { theme = 'blue' } = (arguments[0] as DynamicAvatarProps);
+  const getAvatarContent = () => {
+    switch (state) {
+      case 'userTyping':
+        return (
+          <motion.div
+            initial={{ scale: 1 }}
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 1, repeat: Infinity }}
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
+          >
+            <motion.div
+              animate={{ y: [0, -2, 0] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
+              className="text-white text-6xl"
+            >
+              😊
+            </motion.div>
+          </motion.div>
+        );
+      
+      case 'aiTyping':
+        return (
+          <motion.div
+            initial={{ rotate: 0 }}
+            animate={{ rotate: [0, -5, 5, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
+          >
+            <motion.div className="text-white text-6xl">
+              🤔
+            </motion.div>
+          </motion.div>
+        );
+      
+      case 'waiting':
+        return (
+          <motion.div
+            animate={{ scale: [1, 1.03, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
+          >
+            <div className="text-white text-6xl">
+              😌
+            </div>
+          </motion.div>
+        );
+      
+      default: // idle
+        return (
+          <motion.div
+            animate={{ y: [0, -3, 0] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className={`w-24 h-24 rounded-full bg-${theme}-500 flex items-center justify-center`}
+          >
+            <div className="text-white text-6xl">
+              🙂
+            </div>
+          </motion.div>
+        );
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center">
+      {getAvatarContent()}
+    </div>
+  );
+} // Description: app/components/Chat/AnimatedMessage.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+
+interface AnimatedMessageProps {
+  message: string;
+  messageId: string;
+}
+
+export default function AnimatedMessage({ message, messageId }: AnimatedMessageProps) {
+  const [displayedMessage, setDisplayedMessage] = useState('');
+  const [isComplete, setIsComplete] = useState(false);
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    let currentIndex = 0;
+
+    const animateText = () => {
+      if (currentIndex < message.length) {
+        setDisplayedMessage(message.slice(0, currentIndex + 1));
+        currentIndex++;
+        timeoutId = setTimeout(animateText, 20);
+      } else {
+        setIsComplete(true);
+      }
+    };
+
+    if (messageId === 'welcome') {
+      setDisplayedMessage(message);
+      setIsComplete(true);
+    } else {
+      animateText();
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [message, messageId]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="whitespace-pre-wrap"
+    >
+      {displayedMessage}
+    </motion.div>
+  );
+} // Description: app/components/Breathing/BreathingExercises.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+
+type BreathingPattern = {
+  name: string;
+  description: string;
+  inhale: number;
+  hold: number;
+  exhale: number;
+  holdAfterExhale?: number;
+};
+
+const BREATHING_PATTERNS: BreathingPattern[] = [
+  {
+    name: 'Box Breathing',
+    description: 'Through the nose into the belly, hold, slowly out the mouth, hold at the bottom.',
+    inhale: 4,
+    hold: 4,
+    exhale: 4,
+    holdAfterExhale: 4,
+  },
+  {
+    name: '4-7-8 Breathing',
+    description: 'A natural tranquilizer for the nervous system, helping reduce anxiety and promote sleep.',
+    inhale: 4,
+    hold: 7,
+    exhale: 8,
+  },
+  {
+    name: 'Relaxing Breath',
+    description: 'A gentle breathing pattern for deep relaxation and stress relief.',
+    inhale: 5,
+    hold: 2,
+    exhale: 6,
+  },
+];
+
+export default function BreathingExercises() {
+  const [isBreathing, setIsBreathing] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<'inhale' | 'hold' | 'exhale' | 'holdAfterExhale'>('inhale');
+  const [countdown, setCountdown] = useState(4);
+  const [selectedPattern, setSelectedPattern] = useState<BreathingPattern>(BREATHING_PATTERNS[0]);
+  const [progress, setProgress] = useState(0);
+  const [totalTime, setTotalTime] = useState(0);
+
+  useEffect(() => {
+    if (!isBreathing) {
+      setProgress(0);
+      setTotalTime(0);
+      return;
+    }
+
+    const updateInterval = 8; // 120fps for smoother animation
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 0.05) {
+          switch (currentPhase) {
+            case 'inhale':
+              setCurrentPhase('hold');
+              return selectedPattern.hold;
+            case 'hold':
+              setCurrentPhase('exhale');
+              return selectedPattern.exhale;
+            case 'exhale':
+              if (selectedPattern.holdAfterExhale) {
+                setCurrentPhase('holdAfterExhale');
+                return selectedPattern.holdAfterExhale;
+              }
+              setCurrentPhase('inhale');
+              setTotalTime(0);
+              return selectedPattern.inhale;
+            case 'holdAfterExhale':
+              setCurrentPhase('inhale');
+              setTotalTime(0);
+              return selectedPattern.inhale;
+          }
+        }
+        return prev - (updateInterval / 1000);
+      });
+
+      setTotalTime(prev => {
+        const totalDuration = getTotalDuration();
+        const newTime = prev + updateInterval / 1000;
+        return newTime >= totalDuration ? 0 : newTime;
+      });
+
+      setProgress((prev) => {
+        // Calculate progress based on the phase duration and countdown
+        switch (currentPhase) {
+          case 'inhale': {
+            const phaseProgress = (selectedPattern.inhale - countdown) / selectedPattern.inhale;
+            return phaseProgress * 25;
+          }
+          case 'hold': {
+            const phaseProgress = (selectedPattern.hold - countdown) / selectedPattern.hold;
+            return 25 + (phaseProgress * 25);
+          }
+          case 'exhale': {
+            const phaseProgress = (selectedPattern.exhale - countdown) / selectedPattern.exhale;
+            return 50 + (phaseProgress * 25);
+          }
+          case 'holdAfterExhale': {
+            const holdTime = selectedPattern.holdAfterExhale || 1;
+            const phaseProgress = (holdTime - countdown) / holdTime;
+            return 75 + (phaseProgress * 25);
+          }
+          default:
+            return 0;
+        }
+      });
+    }, updateInterval);
+
+    return () => clearInterval(timer);
+  }, [isBreathing, currentPhase, selectedPattern, countdown]);
+
+  const getTotalDuration = () => {
+    return selectedPattern.inhale + selectedPattern.hold + selectedPattern.exhale + 
+           (selectedPattern.holdAfterExhale || 0);
+  };
+
+  const getPhaseColor = () => {
+    switch (currentPhase) {
+      case 'inhale':
+        return 'text-blue-600';
+      case 'hold':
+        return 'text-blue-600';
+      case 'exhale':
+        return 'text-teal-600';
+      case 'holdAfterExhale':
+        return 'text-sky-400';
+    }
+  };
+
+  const getBreathPath = () => {
+    const width = 100;
+    const height = 80;
+    const midY = height/2;
+    const topY = height/4;
+    const bottomY = height*3/4;
+    
+    // Create SVG path for breathing pattern
+    let path = `M 0,${midY} `; // Start at middle left
+    
+    // Inhale curve up (0-25%)
+    path += `C 15,${midY} 20,${topY} 25,${topY} `;
+    // Hold at top (25-50%)
+    path += `L 50,${topY} `;
+    // Exhale curve down (50-75%)
+    path += `C 55,${topY} 60,${bottomY} 75,${bottomY} `;
+    // Hold at bottom (75-100%)
+    path += `L 100,${bottomY}`;
+    
+    return path;
+  };
+
+  const getProgressPath = (progress: number) => {
+    const width = 100;
+    const height = 80;
+    const midY = height/2;
+    const topY = height/4;
+    const bottomY = height*3/4;
+    
+    // Return empty path at start of new cycle
+    if (progress === 0) {
+      return '';
+    }
+    
+    let path = `M 0,${midY} `;
+    
+    if (progress <= 25) {
+      // Inhale curve up (0-25%)
+      const t = progress / 25;
+      const p0 = midY;  // start y
+      const p1 = midY;  // first control point y
+      const p2 = topY;  // second control point y
+      const p3 = topY;  // end y
+      
+      const x0 = 0;     // start x
+      const x1 = 15;    // first control point x
+      const x2 = 20;    // second control point x
+      const x3 = 25;    // end x
+      
+      const currentX = x0*(1-t)**3 + 3*x1*t*(1-t)**2 + 3*x2*t**2*(1-t) + x3*t**3;
+      const currentY = p0*(1-t)**3 + 3*p1*t*(1-t)**2 + 3*p2*t**2*(1-t) + p3*t**3;
+      
+      return `M 0,${midY} C ${x1},${p1} ${x2},${p2} ${currentX},${currentY}`;
+    } else if (progress <= 50) {
+      // Complete inhale curve
+      path += `C 15,${midY} 20,${topY} 25,${topY} `;
+      // Draw hold line only up to current progress
+      const holdX = 25 + ((progress - 25) / 25) * 25;
+      return path + `L ${holdX},${topY}`;
+    } else if (progress <= 75) {
+      // Complete inhale and hold
+      path += `C 15,${midY} 20,${topY} 25,${topY} L 50,${topY} `;
+      
+      // Exhale curve down (50-75%)
+      const t = (progress - 50) / 25;
+      const p0 = topY;    // start y
+      const p1 = topY;    // first control point y
+      const p2 = bottomY; // second control point y
+      const p3 = bottomY; // end y
+      
+      const x0 = 50;    // start x
+      const x1 = 55;    // first control point x
+      const x2 = 60;    // second control point x
+      const x3 = 75;    // end x
+      
+      const currentX = x0*(1-t)**3 + 3*x1*t*(1-t)**2 + 3*x2*t**2*(1-t) + x3*t**3;
+      const currentY = p0*(1-t)**3 + 3*p1*t*(1-t)**2 + 3*p2*t**2*(1-t) + p3*t**3;
+      
+      return path + `C ${x1},${p1} ${x2},${p2} ${currentX},${currentY}`;
+    } else {
+      // Complete inhale, hold, and exhale
+      path += `C 15,${midY} 20,${topY} 25,${topY} L 50,${topY} C 55,${topY} 60,${bottomY} 75,${bottomY} `;
+      // Draw final hold line only up to current progress
+      const holdX = Math.min(75 + ((progress - 75) / 25) * 25, 100);
+      return path + `L ${holdX},${bottomY}`;
+    }
+  };
+
+  // Calculate the total path length once
+  const pathLength = 100; // Using 100 as our base unit for simplicity
+
+  const getYPosition = (progress: number) => {
+    const height = 80;
+    const midY = height/2;
+    const topY = height/4;
+    const bottomY = height*3/4;
+
+    if (progress <= 25) {
+      // Inhale - cubic bezier curve up
+      const t = progress / 25;
+      const p0 = midY;
+      const p1 = midY;
+      const p2 = topY;
+      const p3 = topY;
+      return p0*(1-t)**3 + 3*p1*t*(1-t)**2 + 3*p2*t**2*(1-t) + p3*t**3;
+    } else if (progress <= 50) {
+      // Hold at top
+      return topY;
+    } else if (progress <= 75) {
+      // Exhale - cubic bezier curve down
+      const t = (progress - 50) / 25;
+      const p0 = topY;
+      const p1 = topY;
+      const p2 = bottomY;
+      const p3 = bottomY;
+      return p0*(1-t)**3 + 3*p1*t*(1-t)**2 + 3*p2*t**2*(1-t) + p3*t**3;
+    } else {
+      // Hold at bottom
+      return bottomY;
+    }
+  };
+
+  const getPhaseDisplay = (phase: string) => {
+    switch (phase) {
+      case 'inhale':
+        return 'Inhale';
+      case 'hold':
+      case 'holdAfterExhale':
+        return 'Hold';
+      case 'exhale':
+        return 'Exhale';
+      default:
+        return phase;
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-4xl font-bold text-center mb-8 text-blue-600">
+        Breathing Exercises
+      </h1>
+      
+      {/* Pattern Selection */}
+      <div className="flex justify-center gap-4 mb-8">
+        {BREATHING_PATTERNS.map((pattern) => (
+          <button
+            key={pattern.name}
+            onClick={() => {
+              setSelectedPattern(pattern);
+              setIsBreathing(false);
+              setCurrentPhase('inhale');
+              setCountdown(pattern.inhale);
+            }}
+            className={`px-6 py-3 rounded-lg transition-colors ${
+              selectedPattern.name === pattern.name
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+            }`}
+          >
+            {pattern.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Description */}
+      <p className="text-gray-600 text-center mb-8 max-w-2xl mx-auto">
+        {selectedPattern.description}
+      </p>
+
+      {/* Breathing Animation Container */}
+      <div className="relative flex items-center justify-center gap-8 mb-8">
+        {/* Animation */}
+        <div className="relative w-full max-w-xl aspect-[2/1]">
+          <svg
+            viewBox="0 0 100 80"
+            className="w-full h-full"
+            style={{ transform: 'translateX(-5%)' }}
+          >
+            {/* Background guide path */}
+            <path
+              d={getBreathPath()}
+              stroke="#E5E7EB"
+              strokeWidth="2"
+              fill="none"
+            />
+            
+            {/* Moving indicator */}
+            <motion.circle
+              cx={progress}
+              cy={getYPosition(progress)}
+              r="4"
+              className="fill-blue-600"
+            />
+          </svg>
+        </div>
+
+        {/* Phase indicator - Now on the right side */}
+        <div className="w-32 flex-shrink-0">
+          <h2 className={`text-4xl font-bold ${getPhaseColor()}`}>
+            {isBreathing ? getPhaseDisplay(currentPhase) : 'Ready'}
+          </h2>
+          {isBreathing && (
+            <div className="text-2xl text-gray-600 mt-2">
+              {Math.ceil(countdown)}s
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Start/Stop Button */}
+      <div className="flex justify-center">
+        <button
+          onClick={() => {
+            setIsBreathing(!isBreathing);
+            if (!isBreathing) {
+              setCurrentPhase('inhale');
+              setCountdown(selectedPattern.inhale);
+            }
+          }}
+          className="px-8 py-4 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          {isBreathing ? 'Stop Breathing Exercise' : 'Start Breathing Exercise'}
+        </button>
+      </div>
+    </div>
+  );
+} // Description: app/components/Breathing/BreathingExercise.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { useState, useEffect } from 'react';
+
+const BREATHING_PATTERNS = {
+  calm: { inhale: 4, hold: 4, exhale: 4, name: 'Box Breathing' },
+  relax: { inhale: 4, hold: 7, exhale: 8, name: '4-7-8 Relaxing Breath' },
+  energize: { inhale: 6, hold: 0, exhale: 2, name: 'Energizing Breath' },
+};
+
+type BreathingPhase = 'inhale' | 'hold' | 'exhale' | 'rest';
+type BreathingPattern = keyof typeof BREATHING_PATTERNS;
+
+export default function BreathingExercise() {
+  const [isActive, setIsActive] = useState(false);
+  const [pattern, setPattern] = useState<BreathingPattern>('calm');
+  const [phase, setPhase] = useState<BreathingPhase>('rest');
+  const [timer, setTimer] = useState(0);
+  const [cycles, setCycles] = useState(0);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (isActive) {
+      intervalId = setInterval(() => {
+        setTimer((prev) => {
+          const currentPattern = BREATHING_PATTERNS[pattern];
+          
+          if (phase === 'inhale' && prev >= currentPattern.inhale) {
+            setPhase('hold');
+            return 0;
+          } else if (phase === 'hold' && prev >= currentPattern.hold) {
+            setPhase('exhale');
+            return 0;
+          } else if (phase === 'exhale' && prev >= currentPattern.exhale) {
+            setPhase('inhale');
+            setCycles((prev) => prev + 1);
+            return 0;
+          }
+          
+          return prev + 1;
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(intervalId);
+  }, [isActive, phase, pattern]);
+
+  const startExercise = () => {
+    setIsActive(true);
+    setPhase('inhale');
+    setTimer(0);
+    setCycles(0);
+  };
+
+  const stopExercise = () => {
+    setIsActive(false);
+    setPhase('rest');
+    setTimer(0);
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Breathing Exercises</h2>
+      
+      <div className="mb-6">
+        <label className="block text-lg text-gray-700 mb-2">Choose a breathing pattern:</label>
+        <select
+          value={pattern}
+          onChange={(e) => setPattern(e.target.value as BreathingPattern)}
+          className="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+          disabled={isActive}
+        >
+          {Object.entries(BREATHING_PATTERNS).map(([key, value]) => (
+            <option key={key} value={key}>
+              {value.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex justify-center mb-8">
+        <div className={`
+          w-48 h-48 rounded-full flex items-center justify-center
+          transition-all duration-1000
+          ${phase === 'inhale' ? 'scale-150 bg-blue-100' : ''}
+          ${phase === 'hold' ? 'scale-150 bg-green-100' : ''}
+          ${phase === 'exhale' ? 'scale-100 bg-purple-100' : ''}
+          ${phase === 'rest' ? 'scale-100 bg-gray-100' : ''}
+        `}>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-gray-800 mb-2">
+              {phase === 'rest' ? 'Ready' : phase}
+            </div>
+            {phase !== 'rest' && (
+              <div className="text-xl text-gray-600">{timer}s</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center mb-6">
+        <p className="text-lg text-gray-700 mb-2">
+          Completed cycles: {cycles}
+        </p>
+        <button
+          onClick={isActive ? stopExercise : startExercise}
+          className={`
+            px-6 py-3 rounded-lg text-white font-semibold text-lg
+            ${isActive
+              ? 'bg-red-500 hover:bg-red-600'
+              : 'bg-blue-600 hover:bg-blue-700'
+            }
+            transition-colors
+          `}
+        >
+          {isActive ? 'Stop' : 'Start'} Exercise
+        </button>
+      </div>
+
+      <div className="text-gray-700">
+        <h3 className="font-semibold mb-2">Instructions:</h3>
+        <ul className="list-disc list-inside space-y-2">
+          <li>Find a comfortable position and relax your body</li>
+          <li>Follow the breathing circle: expand as you inhale, hold, and contract as you exhale</li>
+          <li>Keep your breathing smooth and natural</li>
+          <li>If you feel lightheaded, stop and return to normal breathing</li>
+        </ul>
+      </div>
+    </div>
+  );
+} // Description: app/components/Resources/CrisisSupport.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+interface Resource {
+  name: string;
+  description: string;
+  contact?: string;
+  website?: string;
+  available: string;
+  category: 'emergency' | 'crisis' | 'support';
+}
+
+const RESOURCES: Resource[] = [
+  {
+    name: 'Samaritans',
+    description: '24/7 listening support for anyone in emotional distress',
+    contact: '116 123',
+    website: 'https://www.samaritans.org',
+    available: '24/7',
+    category: 'emergency'
+  },
+  {
+    name: 'NHS Mental Health Crisis Line',
+    description: 'Immediate support from NHS mental health professionals',
+    contact: '111, then select option 2',
+    website: 'https://www.nhs.uk/service-search/mental-health/find-an-urgent-mental-health-helpline',
+    available: '24/7',
+    category: 'emergency'
+  },
+  {
+    name: 'Mind',
+    description: 'Mental health support and guidance',
+    contact: '0300 123 3393',
+    website: 'https://www.mind.org.uk',
+    available: 'Mon-Fri 9am-6pm',
+    category: 'support'
+  },
+  {
+    name: 'CALM (Campaign Against Living Miserably)',
+    description: 'Support for men feeling down or in crisis',
+    contact: '0800 58 58 58',
+    website: 'https://www.thecalmzone.net',
+    available: '5pm-midnight',
+    category: 'crisis'
+  },
+  {
+    name: 'Young Minds',
+    description: 'Mental health support for young people',
+    contact: 'Text YM to 85258',
+    website: 'https://www.youngminds.org.uk',
+    available: '24/7',
+    category: 'support'
+  },
+  {
+    name: 'Papyrus HOPELINEUK',
+    description: 'Prevention of young suicide',
+    contact: '0800 068 4141',
+    website: 'https://www.papyrus-uk.org',
+    available: '9am-midnight',
+    category: 'crisis'
+  }
+];
+
+export default function CrisisSupport() {
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-3xl mx-auto">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Need Immediate Help?</h2>
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+          <p className="text-lg font-semibold text-red-700">
+            If you&apos;re experiencing thoughts of suicide or severe emotional distress, please reach out for help immediately.
+          </p>
+          <p className="text-red-700 mt-2 text-xl font-bold">
+            Call 999 for emergencies or 116 123 for Samaritans
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-6">
+        {['emergency', 'crisis', 'support'].map((category) => (
+          <div key={category} className="space-y-4">
+            <h3 className="text-xl font-semibold text-gray-900 capitalize">
+              {category} Resources
+            </h3>
+            <div className="grid gap-4">
+              {RESOURCES.filter(resource => resource.category === category).map((resource) => (
+                <div
+                  key={resource.name}
+                  className="border-2 border-gray-100 rounded-lg p-4 hover:border-blue-100 transition-colors"
+                >
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                    {resource.name}
+                  </h4>
+                  <p className="text-gray-600 mb-3">{resource.description}</p>
+                  <div className="space-y-2">
+                    {resource.contact && (
+                      <p className="text-blue-600 font-medium">
+                        Contact: {resource.contact}
+                      </p>
+                    )}
+                    {resource.website && (
+                      <a
+                        href={resource.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline block"
+                      >
+                        Visit Website →
+                      </a>
+                    )}
+                    <p className="text-sm text-gray-500">
+                      Available: {resource.available}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          Additional Support
+        </h3>
+        <ul className="list-disc list-inside space-y-2 text-gray-700">
+          <li>Call 999 for immediate emergency services</li>
+          <li>Contact your GP for mental health support</li>
+          <li>Visit your nearest A&E if you need immediate help</li>
+          <li>Use the NHS 111 online service for urgent medical advice</li>
+        </ul>
+      </div>
+
+      <div className="mt-6 text-sm text-gray-500">
+        <p>
+          Note: This is not a comprehensive list of all available resources. Different areas within the UK may have additional local support services available.
+        </p>
+      </div>
+    </div>
+  );
+} // Description: app/components/Navigation/FeatureNavigation.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { useState } from 'react';
+import ChatInterface from '../Chat/ChatInterface';
+import BreathingExercise from '../Breathing/BreathingExercise';
+import CrisisSupport from '../Resources/CrisisSupport';
+
+type Feature = 'chat' | 'breathing' | 'resources';
+
+interface FeatureInfo {
+  id: Feature;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+const FEATURES: FeatureInfo[] = [
+  {
+    id: 'chat',
+    name: 'Empathetic AI',
+    description: 'Talk with Mind AI about your thoughts and feelings',
+    icon: '💭'
+  },
+  {
+    id: 'breathing',
+    name: 'Breathing Exercises',
+    description: 'Guided breathing for relaxation and stress relief',
+    icon: '🫁'
+  },
+  {
+    id: 'resources',
+    name: 'Crisis Resources',
+    description: 'Access mental health support and crisis resources',
+    icon: '🆘'
+  }
+];
+
+export default function FeatureNavigation() {
+  const [activeFeature, setActiveFeature] = useState<Feature>('chat');
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const renderFeature = () => {
+    switch (activeFeature) {
+      case 'chat':
+        return <ChatInterface />;
+      case 'breathing':
+        return <BreathingExercise />;
+      case 'resources':
+        return <CrisisSupport />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 relative">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <div className="flex-shrink-0">
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mind AI</h1>
+              </div>
+              <div className="h-6 px-2 md:px-3 bg-[#1a1b2e] rounded flex items-center justify-center">
+                <span className="text-white text-xs md:text-sm font-medium tracking-wide">40seconds</span>
+              </div>
+              <span className="text-xs md:text-sm text-gray-600">Your Mental Health Assistant</span>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile floating button */}
+      <button
+        className="fixed z-30 bottom-24 left-4 md:hidden bg-blue-600 text-white p-3 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        aria-label="Open features menu"
+        onClick={() => setIsMobileOpen(true)}
+        style={{ display: isMobileOpen ? 'none' : 'block' }}
+      >
+        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+      </button>
+
+      <div className="flex h-[calc(100vh-4rem)]">
+        {/* Sidebar for desktop and mobile drawer */}
+        {/* Desktop sidebar */}
+        <div className={`
+          hidden md:block
+          transition-all duration-300 bg-white border-r border-gray-200 p-4 overflow-y-auto
+          ${isMinimized ? 'w-16' : 'w-80'}
+        `}>
+          <button
+            aria-label={isMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
+            onClick={() => setIsMinimized((v) => !v)}
+            className="mb-4 p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {isMinimized ? (
+              <span title="Expand">▶️</span>
+            ) : (
+              <span title="Minimize">◀️</span>
+            )}
+          </button>
+          <div className="space-y-2">
+            {FEATURES.map((feature) => (
+              <button
+                key={feature.id}
+                onClick={() => setActiveFeature(feature.id)}
+                className={`
+                  w-full rounded-lg text-left transition-all flex items-center ${isMinimized ? 'justify-center p-3' : 'p-4'}
+                  ${activeFeature === feature.id
+                    ? 'bg-blue-50 border-2 border-blue-500 shadow-sm'
+                    : 'bg-white border-2 border-gray-100 hover:border-blue-200'
+                  }
+                `}
+              >
+                <div className="text-2xl flex-shrink-0">{feature.icon}</div>
+                {!isMinimized && (
+                  <div className="ml-3">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {feature.name}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {feature.description}
+                    </p>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Mobile sidebar drawer */}
+        {isMobileOpen && (
+          <div className="fixed inset-0 z-40 flex md:hidden">
+            {/* Overlay */}
+            <div
+              className="fixed inset-0 bg-black bg-opacity-30"
+              onClick={() => setIsMobileOpen(false)}
+              aria-label="Close sidebar overlay"
+            />
+            {/* Drawer */}
+            <div className="relative w-4/5 max-w-xs bg-white border-r border-gray-200 p-4 overflow-y-auto h-full shadow-xl animate-slide-in-left">
+              <button
+                aria-label="Close sidebar"
+                onClick={() => setIsMobileOpen(false)}
+                className="mb-4 p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <span title="Close">✖️</span>
+              </button>
+              <div className="space-y-2">
+                {FEATURES.map((feature) => (
+                  <button
+                    key={feature.id}
+                    onClick={() => {
+                      setActiveFeature(feature.id);
+                      setIsMobileOpen(false);
+                    }}
+                    className={`
+                      w-full rounded-lg text-left transition-all flex items-center p-4
+                      ${activeFeature === feature.id
+                        ? 'bg-blue-50 border-2 border-blue-500 shadow-sm'
+                        : 'bg-white border-2 border-gray-100 hover:border-blue-200'
+                      }
+                    `}
+                  >
+                    <div className="text-2xl flex-shrink-0">{feature.icon}</div>
+                    <div className="ml-3">
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {feature.name}
+                      </h3>
+                      <p className="text-xs text-gray-600">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content: always render each feature but toggle via hidden class */}
+        <div className="flex-1 overflow-y-auto relative">
+          <div className={`${activeFeature === 'chat' ? 'block' : 'hidden'} h-full`}> 
+            <ChatInterface />
+          </div>
+          <div className={`${activeFeature === 'breathing' ? 'block' : 'hidden'} h-full`}> 
+            <BreathingExercise />
+          </div>
+          <div className={`${activeFeature === 'resources' ? 'block' : 'hidden'} h-full`}> 
+            <CrisisSupport />
+          </div>
+        </div>
+      </div>
+      {/* Mobile sidebar slide-in animation */}
+      <style jsx global>{`
+        @keyframes slide-in-left {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in-left {
+          animation: slide-in-left 0.2s ease-out;
+        }
+      `}</style>
+    </div>
+  );
+} // Description: app/components/Crisis/CrisisResources.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { FaPhone, FaGlobe, FaComments, FaHospital } from 'react-icons/fa';
+
+export default function CrisisResources() {
+  const emergencyResources = [
+    {
+      name: "AASRA",
+      phone: "91-9820466726",
+      description: "24/7 Helpline for emotional support and suicide prevention",
+      website: "http://www.aasra.info/",
+      icon: <FaPhone className="w-6 h-6" />
+    },
+    {
+      name: "iCall Helpline",
+      phone: "91-9152987821",
+      description: "Psychosocial helpline by TISS (Mon-Sat, 10 AM-8 PM)",
+      website: "https://icallhelpline.org/",
+      icon: <FaComments className="w-6 h-6" />
+    }
+  ];
+
+  const additionalResources = [
+    {
+      name: "NIMHANS",
+      phone: "080-46110007",
+      description: "National Institute of Mental Health and Neurosciences - Mental health support and resources",
+      website: "https://nimhans.ac.in",
+      icon: <FaHospital className="w-6 h-6" />
+    },
+    {
+      name: "Vandrevala Foundation",
+      phone: "1860-2662-345",
+      description: "24/7 mental health helpline and counseling",
+      website: "https://vandrevalafoundation.com",
+      icon: <FaGlobe className="w-6 h-6" />
+    }
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto p-8">
+      <div className="bg-red-50 border-l-4 border-red-500 p-6 mb-8 rounded-r-lg">
+        <h2 className="text-2xl font-bold text-red-700 mb-2">Emergency Warning</h2>
+        <p className="text-lg text-red-600">
+          If you or someone else is in immediate danger, please call emergency services immediately:
+          <br />
+          <span className="font-bold">Ambulance: 102</span>
+          <br />
+          <span className="font-bold">Police: 100</span>
+        </p>
+      </div>
+
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Crisis Resources in India</h1>
+      
+      <div className="space-y-6">
+        <section>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">24/7 Mental Health Support</h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            {emergencyResources.map((resource, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-md p-6 border-2 border-blue-100">
+                <div className="flex items-start space-x-4">
+                  <div className="text-blue-600">
+                    {resource.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{resource.name}</h3>
+                    <p className="text-lg font-semibold text-blue-600 mb-2">{resource.phone}</p>
+                    <p className="text-gray-600 mb-4">{resource.description}</p>
+                    <a
+                      href={resource.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      Visit Website
+                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Professional Mental Health Services</h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            {additionalResources.map((resource, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-md p-6 border-2 border-blue-100">
+                <div className="flex items-start space-x-4">
+                  <div className="text-blue-600">
+                    {resource.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{resource.name}</h3>
+                    <p className="text-lg font-semibold text-blue-600 mb-2">{resource.phone}</p>
+                    <p className="text-gray-600 mb-4">{resource.description}</p>
+                    <a
+                      href={resource.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      Visit Website
+                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-blue-50 p-6 rounded-lg">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Additional Information</h2>
+          <p className="text-gray-700">
+            These helplines provide support in multiple languages including Hindi, English, and regional languages. 
+            Services are confidential and available to anyone in need of emotional support or experiencing mental health challenges.
+          </p>
+        </section>
+      </div>
+    </div>
+  );
+} // Description: app/components/WellbeingScore/WellbeingScore.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import { wellbeingService, WeeklyAnalytics, DailyScore } from '../../../services/wellbeingService';
+
+interface TrendIndicatorProps {
+  trend: 'improving' | 'declining' | 'stable';
+}
+
+const TrendIndicator: React.FC<TrendIndicatorProps> = ({ trend }) => {
+  const getIcon = () => {
+    switch (trend) {
+      case 'improving':
+        return '↗️';
+      case 'declining':
+        return '↘️';
+      default:
+        return '→';
+    }
+  };
+
+  const getColor = () => {
+    switch (trend) {
+      case 'improving':
+        return 'text-green-600';
+      case 'declining':
+        return 'text-red-600';
+      default:
+        return 'text-blue-600';
+    }
+  };
+
+  return (
+    <span className={`${getColor()} font-bold`}>
+      {getIcon()} {trend}
+    </span>
+  );
+};
+
+export default function WellbeingScore() {
+  const [metrics] = useState<string[]>([
+    'Mood',
+    'Anxiety',
+    'Sleep',
+    'Energy',
+    'Social Connection'
+  ]);
+
+  const [weeklyAnalytics, setWeeklyAnalytics] = useState<WeeklyAnalytics>({
+    averageScore: 0,
+    highestScore: 0,
+    lowestScore: 0,
+    moodTrend: 'stable',
+    totalExercises: 0
+  });
+
+  const [monthlyScores, setMonthlyScores] = useState<DailyScore[]>([]);
+  const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [currentMetric, setCurrentMetric] = useState<string>(metrics[0]);
+  const scores: Record<string, number> = {
+    'Mood': 0.75,
+    'Anxiety': 0.65,
+    'Sleep': 0.8,
+    'Energy': 0.7,
+    'Social Connection': 0.85
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    const weekly = await wellbeingService.getWeeklyAnalytics();
+    const monthly = await wellbeingService.getMonthlyScores();
+    setWeeklyAnalytics(weekly);
+    setMonthlyScores(monthly);
+  };
+
+  const getScoreColor = (score: number): string => {
+    if (score >= 0.8) return 'text-green-600';
+    if (score >= 0.6) return 'text-blue-600';
+    if (score >= 0.4) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const renderMonthlyChart = () => {
+    const maxHeight = 150;
+    return (
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">30-Day Progress</h3>
+        <div className="flex items-end space-x-2 h-[150px]">
+          {monthlyScores.slice(-30).map((score) => {
+            const height = Math.max(20, score.overallScore * maxHeight);
+            return (
+              <div
+                key={score.date}
+                className="flex-1 group relative"
+                style={{ height: `${height}px` }}
+              >
+                <div
+                  className={`w-full h-full ${
+                    score.overallScore >= 0.8 ? 'bg-green-500' :
+                    score.overallScore >= 0.6 ? 'bg-blue-500' :
+                    score.overallScore >= 0.4 ? 'bg-yellow-500' :
+                    'bg-red-500'
+                  } rounded-t`}
+                />
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+                  {new Date(score.date).toLocaleDateString()}: {Math.round(score.overallScore * 100)}%
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderWeeklyStats = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Weekly Overview</h3>
+        <div className="space-y-2">
+          <p className="text-gray-700">
+            Average Score: <span className={getScoreColor(weeklyAnalytics.averageScore)}>
+              {Math.round(weeklyAnalytics.averageScore * 100)}%
+            </span>
+          </p>
+          <p className="text-gray-700">
+            Highest Score: <span className="text-green-600">
+              {Math.round(weeklyAnalytics.highestScore * 100)}%
+            </span>
+          </p>
+          <p className="text-gray-700">
+            Lowest Score: <span className={getScoreColor(weeklyAnalytics.lowestScore)}>
+              {Math.round(weeklyAnalytics.lowestScore * 100)}%
+            </span>
+          </p>
+        </div>
+      </div>
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Activity Insights</h3>
+        <div className="space-y-2">
+          <p className="text-gray-700">
+            Mood Trend: <TrendIndicator trend={weeklyAnalytics.moodTrend} />
+          </p>
+          <p className="text-gray-700">
+            Breathing Sessions: <span className="text-blue-600 font-semibold">
+              {weeklyAnalytics.totalExercises}
+            </span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Wellbeing Score</h2>
+        <div className="flex space-x-2">
+          {(['daily', 'weekly', 'monthly'] as const).map((viewOption) => (
+            <button
+              key={viewOption}
+              onClick={() => setView(viewOption)}
+              className={`px-4 py-2 rounded-lg ${
+                view === viewOption
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {viewOption.charAt(0).toUpperCase() + viewOption.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'daily' && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            {metrics.map((metric) => (
+              <button
+                key={metric}
+                onClick={() => setCurrentMetric(metric)}
+                className={`p-4 rounded-lg transition-all ${
+                  currentMetric === metric
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {metric}
+              </button>
+            ))}
+          </div>
+
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Today&apos;s Score</h3>
+              <div className={`text-3xl font-bold ${getScoreColor(scores[currentMetric])}`}>
+                {Math.round(scores[currentMetric] * 100)}%
+              </div>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div
+                className={`h-2.5 rounded-full ${
+                  scores[currentMetric] >= 0.8 ? 'bg-green-600' :
+                  scores[currentMetric] >= 0.6 ? 'bg-blue-600' :
+                  scores[currentMetric] >= 0.4 ? 'bg-yellow-600' :
+                  'bg-red-600'
+                }`}
+                style={{ width: `${scores[currentMetric] * 100}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                name: 'Mood',
+                score: scores[currentMetric],
+                description: 'Based on your mood tracking'
+              },
+              {
+                name: 'Journal',
+                score: scores['Anxiety'],
+                description: 'Based on your journal entries'
+              },
+              {
+                name: 'Chat',
+                score: scores['Sleep'],
+                description: 'Based on your conversations'
+              }
+            ].map((category) => (
+              <div
+                key={category.name}
+                className="border-2 border-gray-100 rounded-lg p-4"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    {category.name}
+                  </h4>
+                  <span className={`text-xl font-bold ${getScoreColor(category.score)}`}>
+                    {Math.round(category.score * 100)}%
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600">{category.description}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {view === 'weekly' && renderWeeklyStats()}
+      {view === 'monthly' && renderMonthlyChart()}
+
+      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Understanding Your Score
+        </h3>
+        <ul className="list-disc list-inside space-y-2 text-gray-700 text-sm">
+          <li>Scores are calculated based on your mood tracking, journal entries, chat interactions, and breathing exercises</li>
+          <li>Higher scores indicate better overall wellbeing</li>
+          <li>Scores update automatically as you use different features of the app</li>
+          <li>Try to maintain a balanced routine using various features for the best results</li>
+        </ul>
+      </div>
+
+      <div className="mt-4 text-sm text-gray-500">
+        Last updated: {new Date().toLocaleString()}
+      </div>
+
+      <p className="text-gray-600 mt-4">
+        Let&apos;s track how you&apos;re feeling to better understand your wellbeing journey.
+      </p>
+    </div>
+  );
+} // Description: app/components/Ethics/EthicsPrinciples.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { FaUserShield, FaHeart, FaClipboardCheck, FaHandshake, FaBalanceScale, FaLeaf } from 'react-icons/fa';
+
+export default function EthicsPrinciples() {
+  const principles = [
+    {
+      title: "Protect autonomy",
+      description: "We respect your right to make independent decisions. Eva is designed to support, not direct, your mental health journey.",
+      icon: <FaUserShield className="w-12 h-12 text-indigo-600" />
+    },
+    {
+      title: "Promote human well-being, safety and the public interest",
+      description: "Your well-being and safety are our top priorities. We provide evidence-based support and clear guidance for emergency situations.",
+      icon: <FaHeart className="w-12 h-12 text-amber-500" />
+    },
+    {
+      title: "Ensure transparency, explainability and intelligibility",
+      description: "Eva clearly communicates her capabilities and limitations. We're transparent about AI's role in your mental health support.",
+      icon: <FaClipboardCheck className="w-12 h-12 text-indigo-600" />
+    },
+    {
+      title: "Foster responsibility and accountability",
+      description: "We maintain high standards of responsibility in our AI development and are accountable for Eva's interactions and recommendations.",
+      icon: <FaBalanceScale className="w-12 h-12 text-amber-500" />
+    },
+    {
+      title: "Ensure inclusiveness and equity",
+      description: "Eva is designed to be accessible and helpful to everyone, regardless of their background, culture, or circumstances.",
+      icon: <FaHandshake className="w-12 h-12 text-indigo-600" />
+    },
+    {
+      title: "Promote AI that is responsive and sustainable",
+      description: "We continuously improve Eva's capabilities while ensuring sustainable and responsible AI development practices.",
+      icon: <FaLeaf className="w-12 h-12 text-amber-500" />
+    }
+  ];
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-6xl mx-auto p-8">
+        <div className="text-center mb-12">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Our Ethics & Transparency Principles</h1>
+          <p className="text-xl text-gray-600">
+            Eva is built on a foundation of ethical principles that prioritize transparency, safety, and your well-being.
+          </p>
+        </div>
+
+        <div className="bg-blue-50 rounded-xl p-8 mb-12">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Transparency About Eva</h2>
+          <div className="space-y-4 text-gray-700">
+            <p className="text-lg">Eva is an artificial intelligence system designed to provide mental health support. Here's what you should know:</p>
+            
+            <div className="grid md:grid-cols-2 gap-6 mt-4">
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                <h3 className="font-bold text-xl mb-3 text-blue-700">What Eva Can Do</h3>
+                <ul className="list-disc list-inside space-y-2">
+                  <li>Listen and respond with empathy</li>
+                  <li>Suggest evidence-based coping strategies</li>
+                  <li>Provide information about mental health</li>
+                  <li>Guide breathing exercises</li>
+                  <li>Direct you to professional resources</li>
+                </ul>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                <h3 className="font-bold text-xl mb-3 text-red-700">What Eva Cannot Do</h3>
+                <ul className="list-disc list-inside space-y-2">
+                  <li>Provide medical or professional advice</li>
+                  <li>Diagnose mental health conditions</li>
+                  <li>Prescribe medications</li>
+                  <li>Replace human therapists or counselors</li>
+                  <li>Handle emergency situations</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {principles.map((principle, index) => (
+            <div 
+              key={index}
+              className="bg-gray-50 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4">
+                  {principle.icon}
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-3">
+                  {principle.title}
+                </h2>
+                <p className="text-gray-600">
+                  {principle.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 bg-gray-50 rounded-xl p-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">How Eva Works</h3>
+          <div className="space-y-4 text-gray-700">
+            <p>Eva uses advanced language AI technology to understand and respond to your messages. Here's how it works:</p>
+            <ul className="list-disc list-inside space-y-2">
+              <li>Eva processes your messages to understand their meaning and context</li>
+              <li>Responses are generated based on training data and established mental health support practices</li>
+              <li>Eva maintains conversation history during your session to provide contextual responses</li>
+              <li>All interactions are confidential and handled according to strict privacy standards</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-12 bg-blue-50 rounded-xl p-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Our Commitment to Transparency</h3>
+          <p className="text-lg text-gray-700">
+            We believe in being completely open about Eva's capabilities and limitations. We regularly update our systems and documentation to reflect any changes in Eva's abilities. If you ever feel uncertain about any aspect of your interaction with Eva, we encourage you to ask questions or seek clarification.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+} // Description: app/components/MoodTracker/MoodTracker.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+'use client';
+
+import { useState } from 'react';
+
+interface MoodEntry {
+  mood: number;
+  note: string;
+  timestamp: Date;
+}
+
+const MOOD_EMOJIS = ['😢', '😕', '😐', '🙂', '😊'];
+
+export default function MoodTracker() {
+  const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
+  const [currentNote, setCurrentNote] = useState('');
+
+  const logMood = (moodLevel: number) => {
+    const newEntry: MoodEntry = {
+      mood: moodLevel,
+      note: currentNote,
+      timestamp: new Date(),
+    };
+    setMoodEntries([...moodEntries, newEntry]);
+    setCurrentNote('');
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Mood Tracker</h2>
+      
+      <div className="mb-6">
+        <p className="text-lg text-gray-700 mb-4">How are you feeling right now?</p>
+        <div className="flex justify-center space-x-6">
+          {MOOD_EMOJIS.map((emoji, index) => (
+            <button
+              key={index}
+              onClick={() => logMood(index)}
+              className="text-4xl hover:scale-110 transition-transform p-2 rounded-full hover:bg-gray-100"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <textarea
+          value={currentNote}
+          onChange={(e) => setCurrentNote(e.target.value)}
+          placeholder="Add a note about how you're feeling... (optional)"
+          className="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-gray-900"
+          rows={3}
+        />
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Your Mood History</h3>
+        <div className="space-y-4">
+          {moodEntries.slice().reverse().map((entry, index) => (
+            <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
+              <span className="text-2xl">{MOOD_EMOJIS[entry.mood]}</span>
+              <div className="flex-1">
+                <p className="text-gray-600">{entry.note || 'No note added'}</p>
+                <p className="text-sm text-gray-500">
+                  {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+} // Description: app/layout.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+import './globals.css';
+import { Inter } from 'next/font/google';
+import Head from 'next/head';
+import { ThemeProvider } from './contexts/ThemeContext';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata = {
+  title: 'Eva by 40seconds.org - Mental Health Assistant',
+  description: 'Your personal AI-powered mental health support companion by 40seconds.org',
+  icons: {
+    icon: '/favicon.ico',
+  },
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+      <body className={inter.className}>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}// Description: app/api/chat/route.ts
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+import { OpenAI } from 'openai';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('Missing OPENAI_API_KEY environment variable');
+}
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const systemMessage: ChatCompletionMessageParam = {
+  role: 'system',
+  content: `You are an AI mental health support assistant. Your role is to:
+- Provide empathetic and supportive responses
+- Use evidence-based therapeutic techniques (CBT, DBT)
+- Help users explore their thoughts and feelings
+- Suggest healthy coping strategies
+- Recognize signs of crisis and direct to professional help
+- Always maintain appropriate boundaries
+- Be clear that you are an AI and not a replacement for professional therapy
+
+Important: If you detect signs of immediate harm or crisis, always provide emergency resources and encourage seeking professional help.`
+};
+
+export async function POST(req: Request) {
+  try {
+    const { messages }: { messages: ChatCompletionMessageParam[] } = await req.json();
+
+    // Validate messages
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return Response.json(
+        { error: 'Invalid messages format. Expected non-empty array of messages.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate each message has required properties
+    for (const msg of messages) {
+      if (!msg.role || !msg.content || typeof msg.content !== 'string') {
+        return Response.json(
+          { error: 'Invalid message format. Each message must have role and content.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Add system message to the beginning of the conversation
+    const conversationWithSystem = [systemMessage, ...messages];
+
+    // Ask OpenAI for a chat completion
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4-1106-preview',
+      messages: conversationWithSystem,
+      max_tokens: 500,
+      temperature: 0.7,
+      frequency_penalty: 0.5,
+    });
+
+    const responseMessage = completion.choices[0].message;
+
+    // Return the response with the expected message field
+    return Response.json({
+      message: responseMessage.content
+    });
+  } catch (error: unknown) {
+    console.error('Chat API error:', error);
+    
+    if (error instanceof Error) {
+      // Check for specific OpenAI API errors
+      if (error.message.includes('API key')) {
+        return Response.json(
+          { error: 'Configuration error. Please check API settings.' },
+          { status: 500 }
+        );
+      }
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+    
+    return Response.json(
+      { error: 'An unknown error occurred' }, 
+      { status: 500 }
+    );
+  }
+}// Description: app/page.tsx
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+import ChatInterface from './components/Chat/ChatInterface';
+
+export default function Home() {
+  return (
+    <main className="flex flex-col h-screen bg-gray-50">
+      <div className="flex-1 overflow-hidden">
+        <ChatInterface />
+      </div>
+    </main>
+  );
+}// Description: services/wellbeingService.ts
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
+export interface WeeklyAnalytics {
+  averageScore: number;
+  highestScore: number;
+  lowestScore: number;
+  moodTrend: 'improving' | 'declining' | 'stable';
+  totalExercises: number;
+}
+
+export interface DailyScore {
+  date: string;
+  overallScore: number;
+}
+
+class WellbeingService {
+  async getWeeklyAnalytics(): Promise<WeeklyAnalytics> {
+    // Mock data
+    return {
+      averageScore: 0.75,
+      highestScore: 0.9,
+      lowestScore: 0.6,
+      moodTrend: 'improving',
+      totalExercises: 5
+    };
+  }
+
+  async getMonthlyScores(): Promise<DailyScore[]> {
+    // Mock data - last 30 days
+    const scores: DailyScore[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      scores.push({
+        date: date.toISOString(),
+        overallScore: 0.5 + Math.random() * 0.5 // Random score between 0.5 and 1
+      });
+    }
+    return scores;
+  }
+}
+
+export const wellbeingService = new WellbeingService(); 

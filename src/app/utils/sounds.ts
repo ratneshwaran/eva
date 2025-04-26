@@ -1,3 +1,7 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 class SoundManager {
   private static audioContext: AudioContext | null = null;
 

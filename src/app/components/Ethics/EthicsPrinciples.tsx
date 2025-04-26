@@ -1,8 +1,22 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 'use client';
 
 import { FaUserShield, FaHeart, FaClipboardCheck, FaHandshake, FaBalanceScale, FaLeaf } from 'react-icons/fa';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function EthicsPrinciples() {
+  const { theme } = useTheme();
+  const styles = {
+    containerBg: `bg-${theme}-50`,
+    cardBg: 'bg-white',
+    cardBorder: `border-${theme}-200`,
+    headingText: `text-${theme}-700`,
+    iconColor: `text-${theme}-600`,
+  };
+
   const principles = [
     {
       title: "Protect autonomy",
@@ -37,7 +51,7 @@ export default function EthicsPrinciples() {
   ];
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className={`${styles.containerBg} p-8 rounded-xl`}>
       <div className="max-w-6xl mx-auto p-8">
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Our Ethics & Transparency Principles</h1>
@@ -46,8 +60,8 @@ export default function EthicsPrinciples() {
           </p>
         </div>
 
-        <div className="bg-blue-50 rounded-xl p-8 mb-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Transparency About Eva</h2>
+        <div className={`${styles.containerBg} rounded-xl p-8 mb-12`}>
+          <h2 className={`text-2xl font-bold ${styles.headingText} mb-4`}>Transparency About Eva</h2>
           <div className="space-y-4 text-gray-700">
             <p className="text-lg">Eva is an artificial intelligence system designed to provide mental health support. Here's what you should know:</p>
             
@@ -81,13 +95,13 @@ export default function EthicsPrinciples() {
           {principles.map((principle, index) => (
             <div 
               key={index}
-              className="bg-gray-50 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+              className={`${styles.cardBg} rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow`}
             >
               <div className="flex flex-col items-center text-center">
-                <div className="mb-4">
+                <div className={`${styles.iconColor} mb-4`}>
                   {principle.icon}
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-3">
+                <h2 className={`text-xl font-bold ${styles.headingText} mb-3`}>
                   {principle.title}
                 </h2>
                 <p className="text-gray-600">

@@ -1,3 +1,7 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 import { OpenAI } from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 

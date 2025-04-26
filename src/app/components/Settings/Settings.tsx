@@ -1,3 +1,7 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -40,8 +44,20 @@ export default function Settings({
   const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'general' | 'history'>('general');
 
-  const handleSettingChange = (setting: keyof Omit<SettingsProps, 'deletedMessages' | 'onRestoreMessage' | 'theme' | 'onSettingsChange'>, value: boolean) => {
-    onSettingsChange({ soundEnabled, desktopEnabled, saveHistory, allowDataCollection, theme: currentTheme });
+  const handleSettingChange = (
+    setting: 'soundEnabled' | 'desktopEnabled' | 'saveHistory' | 'allowDataCollection',
+    value: boolean
+  ) => {
+    // Update only the toggled setting, keep others unchanged
+    const newSettings = {
+      soundEnabled: setting === 'soundEnabled' ? value : soundEnabled,
+      desktopEnabled: setting === 'desktopEnabled' ? value : desktopEnabled,
+      saveHistory: setting === 'saveHistory' ? value : saveHistory,
+      allowDataCollection:
+        setting === 'allowDataCollection' ? value : allowDataCollection,
+      theme: currentTheme,
+    };
+    onSettingsChange(newSettings);
   };
 
   useEffect(() => {
@@ -98,7 +114,7 @@ export default function Settings({
                     type="checkbox"
                     checked={soundEnabled}
                     onChange={(e) => handleSettingChange('soundEnabled', e.target.checked)}
-                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
+                    className={`form-checkbox h-4 w-4 accent-${currentTheme}-600 transition duration-150 ease-in-out`}
                   />
                 </label>
                 <label className="flex items-center justify-between">
@@ -107,32 +123,7 @@ export default function Settings({
                     type="checkbox"
                     checked={desktopEnabled}
                     onChange={(e) => handleSettingChange('desktopEnabled', e.target.checked)}
-                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Privacy Settings */}
-            <div className="rounded-lg p-4 shadow-sm border bg-white border-gray-200">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Privacy</h3>
-              <div className="space-y-4">
-                <label className="flex items-center justify-between">
-                  <span className="text-gray-700">Save chat history</span>
-                  <input
-                    type="checkbox"
-                    checked={saveHistory}
-                    onChange={(e) => handleSettingChange('saveHistory', e.target.checked)}
-                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
-                  />
-                </label>
-                <label className="flex items-center justify-between">
-                  <span className="text-gray-700">Allow data collection for improvement</span>
-                  <input
-                    type="checkbox"
-                    checked={allowDataCollection}
-                    onChange={(e) => handleSettingChange('allowDataCollection', e.target.checked)}
-                    className={`form-checkbox h-4 w-4 text-${currentTheme}-600 transition duration-150 ease-in-out`}
+                    className={`form-checkbox h-4 w-4 accent-${currentTheme}-600 transition duration-150 ease-in-out`}
                   />
                 </label>
               </div>
@@ -163,7 +154,7 @@ export default function Settings({
                       value={color}
                       checked={theme === color}
                       onChange={() => onSettingsChange({ soundEnabled, desktopEnabled, saveHistory, allowDataCollection, theme: color })}
-                      className={`form-radio h-4 w-4 text-${color}-600`}
+                      className={`form-radio h-4 w-4 accent-${color}-600`}
                     />
                     <span className="capitalize text-gray-700">{color}</span>
                   </label>

@@ -1,9 +1,14 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 'use client';
 
 import React, { useEffect, useRef } from 'react';
 import { Message } from '@/types/chat';
 import Avatar from './Avatar';
 import AnimatedMessage from './AnimatedMessage';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MessageListProps {
   messages: Message[];
@@ -20,6 +25,9 @@ const getGreeting = () => {
 };
 
 export default function MessageList({ messages, isTyping, isSidebarOpen }: MessageListProps) {
+  const { theme } = useTheme();
+  const userBgClass = `bg-${theme}-600`;
+  const userTextClass = `text-white`;
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -46,7 +54,7 @@ export default function MessageList({ messages, isTyping, isSidebarOpen }: Messa
             <div
               className={`px-4 py-3 rounded-2xl ${
                 message.role === 'user'
-                  ? 'bg-blue-600 text-white ml-auto max-w-[80%]'
+                  ? `${userBgClass} ${userTextClass} ml-auto max-w-[80%]`
                   : 'bg-white text-gray-900 shadow-sm mr-auto max-w-[80%]'
               }`}
             >

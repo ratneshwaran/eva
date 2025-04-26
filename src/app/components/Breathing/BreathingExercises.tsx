@@ -1,7 +1,12 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type BreathingPattern = {
   name: string;
@@ -44,6 +49,40 @@ export default function BreathingExercises() {
   const [selectedPattern, setSelectedPattern] = useState<BreathingPattern>(BREATHING_PATTERNS[0]);
   const [progress, setProgress] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
+  const { theme } = useTheme();
+  const themeStyles = {
+    blue: {
+      containerBg: 'bg-blue-50',
+      headerText: 'text-blue-700',
+      activeTabBg: 'bg-blue-600',
+      activeTabHover: 'hover:bg-blue-700',
+      activeTabText: 'text-white',
+      circleFill: 'fill-blue-600',
+      startButtonBg: 'bg-blue-600',
+      startButtonHover: 'hover:bg-blue-700',
+    },
+    purple: {
+      containerBg: 'bg-purple-50',
+      headerText: 'text-purple-700',
+      activeTabBg: 'bg-purple-600',
+      activeTabHover: 'hover:bg-purple-700',
+      activeTabText: 'text-white',
+      circleFill: 'fill-purple-600',
+      startButtonBg: 'bg-purple-600',
+      startButtonHover: 'hover:bg-purple-700',
+    },
+    green: {
+      containerBg: 'bg-green-50',
+      headerText: 'text-green-700',
+      activeTabBg: 'bg-green-600',
+      activeTabHover: 'hover:bg-green-700',
+      activeTabText: 'text-white',
+      circleFill: 'fill-green-600',
+      startButtonBg: 'bg-green-600',
+      startButtonHover: 'hover:bg-green-700',
+    },
+  } as const;
+  const styles = themeStyles[theme];
 
   useEffect(() => {
     if (!isBreathing) {
@@ -120,18 +159,8 @@ export default function BreathingExercises() {
            (selectedPattern.holdAfterExhale || 0);
   };
 
-  const getPhaseColor = () => {
-    switch (currentPhase) {
-      case 'inhale':
-        return 'text-blue-600';
-      case 'hold':
-        return 'text-blue-600';
-      case 'exhale':
-        return 'text-teal-600';
-      case 'holdAfterExhale':
-        return 'text-sky-400';
-    }
-  };
+  // Always use the current theme color for phase indicator
+  const getPhaseColor = () => `text-${theme}-600`;
 
   const getBreathPath = () => {
     const width = 100;
@@ -271,7 +300,7 @@ export default function BreathingExercises() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-8 text-blue-600">
+      <h1 className={`text-4xl font-bold text-center mb-8 ${styles.headerText}`}>
         Breathing Exercises
       </h1>
       
@@ -288,7 +317,7 @@ export default function BreathingExercises() {
             }}
             className={`px-6 py-3 rounded-lg transition-colors ${
               selectedPattern.name === pattern.name
-                ? 'bg-blue-600 text-white'
+                ? `${styles.activeTabBg} ${styles.activeTabText}`
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
             }`}
           >
@@ -324,7 +353,7 @@ export default function BreathingExercises() {
               cx={progress}
               cy={getYPosition(progress)}
               r="4"
-              className="fill-blue-600"
+              className={`${styles.circleFill}`}
             />
           </svg>
         </div>
@@ -352,7 +381,7 @@ export default function BreathingExercises() {
               setCountdown(selectedPattern.inhale);
             }
           }}
-          className="px-8 py-4 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          className={`px-8 py-4 ${styles.startButtonBg} ${styles.activeTabText} text-lg font-semibold rounded-lg ${styles.startButtonHover} transition-colors`}
         >
           {isBreathing ? 'Stop Breathing Exercise' : 'Start Breathing Exercise'}
         </button>

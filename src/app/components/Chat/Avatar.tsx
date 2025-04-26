@@ -1,3 +1,7 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 import React from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { FaUser } from 'react-icons/fa';

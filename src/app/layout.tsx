@@ -1,3 +1,7 @@
+// Author: Ratneshwaran Maheswaran
+// Affiliation: University College London
+// Email: ratneshwaran.maheswaran.21@ucl.ac.uk
+
 import './globals.css';
 import { Inter } from 'next/font/google';
 import Head from 'next/head';
