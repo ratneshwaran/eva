@@ -1,4 +1,4 @@
-# Mind AI by 40seconds.org
+# Eva by 40seconds.org / Ratneshwaran M
 
 A mental health support AI assistant that provides empathetic conversations and support.
 
