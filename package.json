@@ -2,6 +2,7 @@
   "name": "mind-aiapp",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://eva.40seconds.org",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
